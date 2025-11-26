@@ -15,17 +15,22 @@ public struct ZlibBook <: Serializable<ZlibBook> {
 
             var requestBuilder = HttpRequestBuilder()
                 .method("GET")
-                .url("${zlibraryUrl}${url}")
-            "${zlibraryUrl}${url}" |> println
-
+                .url(URL.parse('${zlibraryUrl}${url}'))
+                .header("Cookie", "selectedSiteMode=books; siteLanguage=zh; bsrv=6b1eff24c10baf39e02b8c7cf2471c88")
+                .header("Host", "zh.usa101.ru")
             let response = (requestBuilder |> setCommonHeader).build() |> client.send
+
+                for (i in requestBuilder.build().headers) {
+                i[0] |> println
+                i[1].toArray() |> println
+            }
 
             let res = StringReader(response.body).readToEnd()
             res |> println
 
             response |> println
-            client.close()
 
+            client.close()
         } catch (error: Exception) {
             (-1, error.toString())
         }

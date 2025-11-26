@@ -1,7 +1,5 @@
 package zlibraryAPI4CJ.zlibclinet
 
-
-
 public struct RecommendBookRes <: Serializable<RecommendBookRes> {
     public var success: Int8 = 0
     public var books: ?Array<ZlibBook> = None
