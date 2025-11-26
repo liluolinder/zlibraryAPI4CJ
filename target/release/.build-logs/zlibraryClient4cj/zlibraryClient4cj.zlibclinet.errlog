@@ -1,0 +1,9 @@
+[33mwarning[0m: unused variable:'error'
+   [36m==>[0m D:\projects\cj\zlibraryClient4cj\src\zlibclinet\ZlibUser.cj:126:18:
+    [36m| [0m
+[36m126[0m [36m| [0m        } catch (error: Exception) {[0m
+    [36m| [0m                 [33m^^^^^ unused variable[0m
+    [36m| [0m
+    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff unused`
+
+1 warning generated, 1 warning printed.

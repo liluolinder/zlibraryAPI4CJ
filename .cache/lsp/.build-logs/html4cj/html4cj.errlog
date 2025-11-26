@@ -1,0 +1,331 @@
+[33mwarning[0m: '--coverage' should be used without optimizations.
+[33mwarning[0m: unused import 'std.io.InputStream'
+  [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\import.cj:22:1:
+   [36m| [0m
+[36m22[0m [36m| [0minternal import std.io.InputStream[0m
+   [36m| [0m[33m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ unused import[0m
+   [36m| [0m
+   [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff unused`
+
+[33mwarning[0m: class 'Matcher' is deprecated. APIs in Matcher have been moved to Regex.
+   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\attribute.cj:200:47:
+    [36m| [0m
+[36m200[0m [36m| [0m        if (syntaxEnum == Syntax.xmlSyntax && Matcher(xmlKeyValid, keyNew).fullMatch().isNone()) {[0m
+    [36m| [0m                                              [33m^^^^^^^ deprecated[0m
+    [36m| [0m
+    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff deprecated`
+
+[33mwarning[0m: function 'matcher' is deprecated. `Matcher` has been marked as deprecated.
+   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\attribute.cj:201:36:
+    [36m| [0m
+[36m201[0m [36m| [0m            keyNew = xmlKeyReplace.matcher(keyNew).replaceAll("")[0m
+    [36m| [0m                                   [33m^^^^^^^ deprecated[0m
+    [36m| [0m
+    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff deprecated`
+
+[33mwarning[0m: class 'Matcher' is deprecated. APIs in Matcher have been moved to Regex.
+   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\attribute.cj:202:20:
+    [36m| [0m
+[36m202[0m [36m| [0m            match (Matcher(xmlKeyValid, keyNew).fullMatch()) {[0m
+    [36m| [0m                   [33m^^^^^^^ deprecated[0m
+    [36m| [0m
+    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff deprecated`
+
+[33mwarning[0m: function 'matcher' is deprecated. `Matcher` has been marked as deprecated.
+    [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\element.cj:1323:47:
+     [36m| [0m
+[36m1323[0m [36m| [0m        var names: Array<String> = classSplit.matcher(className()).split()[0m
+     [36m| [0m                                              [33m^^^^^^^ deprecated[0m
+     [36m| [0m
+     [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff deprecated`
+
+[33mwarning[0m: function 'matcher' is deprecated. `Matcher` has been marked as deprecated.
+   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\evaluator.cj:260:24:
+    [36m| [0m
+[36m260[0m [36m| [0m        match (pattern.matcher(element.attr(key)).find()) {[0m
+    [36m| [0m                       [33m^^^^^^^ deprecated[0m
+    [36m| [0m
+    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff deprecated`
+
+[33mwarning[0m: class 'Matcher' is deprecated. APIs in Matcher have been moved to Regex.
+   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\evaluator.cj:776:16:
+    [36m| [0m
+[36m776[0m [36m| [0m        var m: Matcher = pattern.matcher(element.text())[0m
+    [36m| [0m               [33m^^^^^^^ deprecated[0m
+    [36m| [0m
+    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff deprecated`
+
+[33mwarning[0m: function 'matcher' is deprecated. `Matcher` has been marked as deprecated.
+   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\evaluator.cj:776:34:
+    [36m| [0m
+[36m776[0m [36m| [0m        var m: Matcher = pattern.matcher(element.text())[0m
+    [36m| [0m                                 [33m^^^^^^^ deprecated[0m
+    [36m| [0m
+    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff deprecated`
+
+[33mwarning[0m: class 'Matcher' is deprecated. APIs in Matcher have been moved to Regex.
+   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\evaluator.cj:799:16:
+    [36m| [0m
+[36m799[0m [36m| [0m        var m: Matcher = pattern.matcher(element.ownText())[0m
+    [36m| [0m               [33m^^^^^^^ deprecated[0m
+    [36m| [0m
+    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff deprecated`
+
+[33mwarning[0m: function 'matcher' is deprecated. `Matcher` has been marked as deprecated.
+   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\evaluator.cj:799:34:
+    [36m| [0m
+[36m799[0m [36m| [0m        var m: Matcher = pattern.matcher(element.ownText())[0m
+    [36m| [0m                                 [33m^^^^^^^ deprecated[0m
+    [36m| [0m
+    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff deprecated`
+
+[33mwarning[0m: class 'Matcher' is deprecated. APIs in Matcher have been moved to Regex.
+   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\evaluator.cj:822:16:
+    [36m| [0m
+[36m822[0m [36m| [0m        var m: Matcher = pattern.matcher(element.wholeText())[0m
+    [36m| [0m               [33m^^^^^^^ deprecated[0m
+    [36m| [0m
+    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff deprecated`
+
+[33mwarning[0m: function 'matcher' is deprecated. `Matcher` has been marked as deprecated.
+   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\evaluator.cj:822:34:
+    [36m| [0m
+[36m822[0m [36m| [0m        var m: Matcher = pattern.matcher(element.wholeText())[0m
+    [36m| [0m                                 [33m^^^^^^^ deprecated[0m
+    [36m| [0m
+    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff deprecated`
+
+[33mwarning[0m: class 'Matcher' is deprecated. APIs in Matcher have been moved to Regex.
+   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\evaluator.cj:845:16:
+    [36m| [0m
+[36m845[0m [36m| [0m        var m: Matcher = pattern.matcher(element.wholeOwnText())[0m
+    [36m| [0m               [33m^^^^^^^ deprecated[0m
+    [36m| [0m
+    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff deprecated`
+
+[33mwarning[0m: function 'matcher' is deprecated. `Matcher` has been marked as deprecated.
+   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\evaluator.cj:845:34:
+    [36m| [0m
+[36m845[0m [36m| [0m        var m: Matcher = pattern.matcher(element.wholeOwnText())[0m
+    [36m| [0m                                 [33m^^^^^^^ deprecated[0m
+    [36m| [0m
+    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff deprecated`
+
+[33mwarning[0m: constructor 'init' is deprecated. Use member function `public Regex(let pattern: String, flags: Array<RegexFlag>)` instead.
+   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\query_parser.cj:304:33:
+    [36m| [0m
+[36m304[0m [36m| [0m    private static let NTH_AB = Regex("(([+]|[-])?(\\d+)?)n(\\s*([+]|[-])?\\s*\\d+)?", RegexOption().ignoreCase())[0m
+    [36m| [0m                                [33m^^^^^ deprecated[0m
+    [36m| [0m
+    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff deprecated`
+
+[33mwarning[0m: class 'RegexOption' is deprecated. Use `public enum RegexFlag` instead.
+   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\query_parser.cj:304:88:
+    [36m| [0m
+[36m304[0m [36m| [0m    private static let NTH_AB = Regex("(([+]|[-])?(\\d+)?)n(\\s*([+]|[-])?\\s*\\d+)?", RegexOption().ignoreCase())[0m
+    [36m| [0m                                                                                       [33m^^^^^^^^^^^ deprecated[0m
+    [36m| [0m
+    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff deprecated`
+
+[33mwarning[0m: function 'matcher' is deprecated. `Matcher` has been marked as deprecated.
+   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\query_parser.cj:310:38:
+    [36m| [0m
+[36m310[0m [36m| [0m        let mAB: ?MatchData = NTH_AB.matcher(argS).find()[0m
+    [36m| [0m                                     [33m^^^^^^^ deprecated[0m
+    [36m| [0m
+    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff deprecated`
+
+[33mwarning[0m: function 'matcher' is deprecated. `Matcher` has been marked as deprecated.
+   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\query_parser.cj:311:36:
+    [36m| [0m
+[36m311[0m [36m| [0m        let mB: ?MatchData = NTH_B.matcher(argS).find()[0m
+    [36m| [0m                                   [33m^^^^^^^ deprecated[0m
+    [36m| [0m
+    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff deprecated`
+
+[33mwarning[0m: function 'groupNumber' is deprecated. Use member function `public func groupCount(): Int64` instead.
+   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\query_parser.cj:318:24:
+    [36m| [0m
+[36m318[0m [36m| [0m            (if (group.groupNumber() >= 3) {[0m
+    [36m| [0m                       [33m^^^^^^^^^^^ deprecated[0m
+    [36m| [0m
+    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff deprecated`
+
+[33mwarning[0m: function 'matcher' is deprecated. `Matcher` has been marked as deprecated.
+   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\query_parser.cj:319:41:
+    [36m| [0m
+[36m319[0m [36m| [0m                    Int64.parse(REPLACE.matcher(group.matchString(1)).replace(""))[0m
+    [36m| [0m                                        [33m^^^^^^^ deprecated[0m
+    [36m| [0m
+    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff deprecated`
+
+[33mwarning[0m: function 'groupNumber' is deprecated. Use member function `public func groupCount(): Int64` instead.
+   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\query_parser.cj:322:30:
+    [36m| [0m
+[36m322[0m [36m| [0m                }, if (group.groupNumber() >= 4) {[0m
+    [36m| [0m                             [33m^^^^^^^^^^^ deprecated[0m
+    [36m| [0m
+    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff deprecated`
+
+[33mwarning[0m: function 'matcher' is deprecated. `Matcher` has been marked as deprecated.
+   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\query_parser.cj:323:41:
+    [36m| [0m
+[36m323[0m [36m| [0m                    Int64.parse(REPLACE.matcher(group.matchString(4)).replace(""))[0m
+    [36m| [0m                                        [33m^^^^^^^ deprecated[0m
+    [36m| [0m
+    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff deprecated`
+
+[33mwarning[0m: function 'matcher' is deprecated. `Matcher` has been marked as deprecated.
+   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\query_parser.cj:329:37:
+    [36m| [0m
+[36m329[0m [36m| [0m            (0, Int64.parse(REPLACE.matcher(group.matchString(0)).replace("")))[0m
+    [36m| [0m                                    [33m^^^^^^^ deprecated[0m
+    [36m| [0m
+    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff deprecated`
+
+[33mwarning[0m: class 'ReentrantMutex' is deprecated. Use `public class Mutex` instead.
+  [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\string_util.cj:50:29:
+   [36m| [0m
+[36m50[0m [36m| [0m    private static let mtx: ReentrantMutex = ReentrantMutex()[0m
+   [36m| [0m                            [33m^^^^^^^^^^^^^^ deprecated[0m
+   [36m| [0m
+   [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff deprecated`
+
+[33mwarning[0m: class 'ReentrantMutex' is deprecated. Use `public class Mutex` instead.
+  [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\string_util.cj:50:46:
+   [36m| [0m
+[36m50[0m [36m| [0m    private static let mtx: ReentrantMutex = ReentrantMutex()[0m
+   [36m| [0m                                             [33m^^^^^^^^^^^^^^ deprecated[0m
+   [36m| [0m
+   [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff deprecated`
+
+[33mwarning[0m: function 'matcher' is deprecated. `Matcher` has been marked as deprecated.
+   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\string_util.cj:184:29:
+    [36m| [0m
+[36m184[0m [36m| [0m            if (numberRegex.matcher(char.toString()).find().isNone()) {[0m
+    [36m| [0m                            [33m^^^^^^^ deprecated[0m
+    [36m| [0m
+    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff deprecated`
+
+[33mwarning[0m: function 'matcher' is deprecated. `Matcher` has been marked as deprecated.
+   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\string_util.cj:288:38:
+    [36m| [0m
+[36m288[0m [36m| [0m        return match (validUriScheme.matcher(relUrl).find()) {[0m
+    [36m| [0m                                     [33m^^^^^^^ deprecated[0m
+    [36m| [0m
+    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff deprecated`
+
+[33mwarning[0m: unused function:'get'
+  [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\token_queue.cj:13:9:
+   [36m| [0m
+[36m13[0m [36m| [0m          get() {[0m
+   [36m| [0m [33m_[0m[33m________^[0m
+[36m14[0m [36m| [0m[33m|[0m             queueStr()[0m
+[36m15[0m [36m| [0m[33m|[0m         }[0m
+   [36m| [0m[33m|[0m[33m_[0m[33m________^ unused function[0m
+   [36m| [0m
+   [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff unused`
+
+[33mwarning[0m: unreachable block in 'if' expression
+   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\xml_tree_builder.cj:127:33:
+    [36m| [0m
+[36m127[0m [36m| [0m          if (firstFound == None) {[0m
+    [36m| [0m [33m_[0m[33m________________________________^[0m
+[36m128[0m [36m| [0m[33m|[0m             // not found, skip[0m
+    [36m| [0m[33m|[0m ...[0m
+[36m130[0m [36m| [0m[33m|[0m         }[0m
+    [36m| [0m[33m|[0m[33m_[0m[33m________^ unreachable block in 'if' expression[0m
+    [36m| [0m
+    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff unused`
+
+[33mwarning[0m: unused variable:'ignored'
+   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\tokeniser.cj:234:18:
+    [36m| [0m
+[36m234[0m [36m| [0m        } catch (ignored: IllegalArgumentException) {[0m
+    [36m| [0m                 [33m^^^^^^^ unused variable[0m
+    [36m| [0m
+    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff unused`
+
+[33mwarning[0m: unused variable:'e'
+   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\string_util.cj:302:18:
+    [36m| [0m
+[36m302[0m [36m| [0m        } catch (e: UrlSyntaxException | IllegalArgumentException) {[0m
+    [36m| [0m                 [33m^ unused variable[0m
+    [36m| [0m
+    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff unused`
+
+[33mwarning[0m: unused variable:'e'
+   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\string_util.cj:325:18:
+    [36m| [0m
+[36m325[0m [36m| [0m        } catch (e: UrlSyntaxException | IllegalArgumentException) {[0m
+    [36m| [0m                 [33m^ unused variable[0m
+    [36m| [0m
+    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff unused`
+
+[33mwarning[0m: unreachable block in 'if' expression
+   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\node.cj:510:27:
+    [36m| [0m
+[36m510[0m [36m| [0m              if (sameList) {[0m
+    [36m| [0m [33m_[0m[33m__________________________^[0m
+[36m511[0m [36m| [0m[33m|[0m                 // moving, so OK to empty firstParent and short-circuit[0m
+    [36m| [0m[33m|[0m ...[0m
+[36m526[0m [36m| [0m[33m|[0m             }[0m
+    [36m| [0m[33m|[0m[33m_[0m[33m____________^ unreachable block in 'if' expression[0m
+    [36m| [0m
+    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff unused`
+
+[33mwarning[0m: unreachable block in 'if' expression
+   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\html_tree_builder_state.cj:632:41:
+    [36m| [0m
+[36m632[0m [36m| [0m          if (builder.inButtonScope("p")) {[0m
+    [36m| [0m [33m_[0m[33m________________________________________^[0m
+[36m633[0m [36m| [0m[33m|[0m             builder.processEndTag("p")[0m
+[36m634[0m [36m| [0m[33m|[0m         }[0m
+    [36m| [0m[33m|[0m[33m_[0m[33m________^ unreachable block in 'if' expression[0m
+    [36m| [0m
+    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff unused`
+
+[33mwarning[0m: unused variable:'e'
+   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\html_tree_builder.cj:880:18:
+    [36m| [0m
+[36m880[0m [36m| [0m        } catch (e: IndexOutOfBoundsException) {[0m
+    [36m| [0m                 [33m^ unused variable[0m
+    [36m| [0m
+    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff unused`
+
+[33mwarning[0m: unreachable block in 'if' expression
+   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\html_tree_builder_state.cj:921:41:
+    [36m| [0m
+[36m921[0m [36m| [0m          if (builder.inButtonScope("p")) {[0m
+    [36m| [0m [33m_[0m[33m________________________________________^[0m
+[36m922[0m [36m| [0m[33m|[0m             builder.processEndTag("p")[0m
+[36m923[0m [36m| [0m[33m|[0m         }[0m
+    [36m| [0m[33m|[0m[33m_[0m[33m________^ unreachable block in 'if' expression[0m
+    [36m| [0m
+    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff unused`
+
+[33mwarning[0m: unused variable:'e'
+    [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\element.cj:1051:18:
+     [36m| [0m
+[36m1051[0m [36m| [0m        } catch (e: IllegalArgumentException) {[0m
+     [36m| [0m                 [33m^ unused variable[0m
+     [36m| [0m
+     [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff unused`
+
+[33mwarning[0m: unused variable:'e'
+    [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\element.cj:1128:18:
+     [36m| [0m
+[36m1128[0m [36m| [0m        } catch (e: IllegalArgumentException) {[0m
+     [36m| [0m                 [33m^ unused variable[0m
+     [36m| [0m
+     [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff unused`
+
+[33mwarning[0m: unused variable:'e'
+    [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\element.cj:1153:18:
+     [36m| [0m
+[36m1153[0m [36m| [0m        } catch (e: IllegalArgumentException) {[0m
+     [36m| [0m                 [33m^ unused variable[0m
+     [36m| [0m
+     [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff unused`
+
+39 warnings generated, 39 warnings printed.

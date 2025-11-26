@@ -1,0 +1,802 @@
+{
+  "resolves": [
+    {
+      "rootPackageName": "zlibraryClient4cj",
+      "modulePath": ".",
+      "packagePath": "D:\\projects\\cj\\zlibraryClient4cj\\src",
+      "fullName": "zlibraryClient4cj",
+      "isMacroPackage": false,
+      "output-type": "dynamic",
+      "compile-option": "",
+      "native-compile-option": "",
+      "customized-option": {},
+      "link-option": "",
+      "native-link-option": "",
+      "requires": [],
+      "std-requires": [],
+      "c_libs": {},
+      "hasTestFiles": false,
+      "hasProdFiles": true,
+      "hasTestsInProdFiles": false,
+      "accessLevel": "public"
+    },
+    {
+      "rootPackageName": "zlibraryClient4cj",
+      "modulePath": ".",
+      "packagePath": "D:\\projects\\cj\\zlibraryClient4cj\\src\\common",
+      "fullName": "zlibraryClient4cj.common",
+      "isMacroPackage": false,
+      "output-type": "dynamic",
+      "compile-option": "",
+      "native-compile-option": "",
+      "customized-option": {},
+      "link-option": "",
+      "native-link-option": "",
+      "requires": [],
+      "std-requires": [],
+      "c_libs": {},
+      "hasTestFiles": false,
+      "hasProdFiles": true,
+      "hasTestsInProdFiles": false,
+      "accessLevel": "public"
+    },
+    {
+      "rootPackageName": "html4cj",
+      "modulePath": "C:\\Users\\liluo\\.cjpm\\git\\html4cj\\08133b56d200ee1c3b75cb16abdd0edb69c2ad87",
+      "packagePath": "C:\\Users\\liluo\\.cjpm\\git\\html4cj\\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\\src",
+      "fullName": "html4cj",
+      "isMacroPackage": false,
+      "output-type": "dynamic",
+      "compile-option": "-O2",
+      "native-compile-option": "",
+      "customized-option": {},
+      "link-option": "",
+      "native-link-option": "",
+      "requires": [
+        "stdx.encoding.url"
+      ],
+      "std-requires": [
+        "std.collection",
+        "std.convert",
+        "std.io",
+        "std.math",
+        "std.regex",
+        "std.sync",
+        "std.unicode"
+      ],
+      "c_libs": {},
+      "hasTestFiles": false,
+      "hasProdFiles": true,
+      "hasTestsInProdFiles": false,
+      "accessLevel": "public"
+    },
+    {
+      "rootPackageName": "zlibraryClient4cj",
+      "modulePath": ".",
+      "packagePath": "D:\\projects\\cj\\zlibraryClient4cj\\src\\zlibclinet\\utils",
+      "fullName": "zlibraryClient4cj.zlibclinet.utils",
+      "isMacroPackage": false,
+      "output-type": "dynamic",
+      "compile-option": "",
+      "native-compile-option": "",
+      "customized-option": {},
+      "link-option": "",
+      "native-link-option": "",
+      "requires": [
+        "stdx.net.http",
+        "stdx.net.tls",
+        "zlibraryClient4cj.common"
+      ],
+      "std-requires": [],
+      "c_libs": {},
+      "hasTestFiles": false,
+      "hasProdFiles": true,
+      "hasTestsInProdFiles": false,
+      "accessLevel": "public"
+    },
+    {
+      "rootPackageName": "zlibraryClient4cj",
+      "modulePath": ".",
+      "packagePath": "D:\\projects\\cj\\zlibraryClient4cj\\src\\zlibclinet\\utils\\zlibRequestUtils",
+      "fullName": "zlibraryClient4cj.zlibclinet.utils.zlibRequestUtils",
+      "isMacroPackage": false,
+      "output-type": "dynamic",
+      "compile-option": "",
+      "native-compile-option": "",
+      "customized-option": {},
+      "link-option": "",
+      "native-link-option": "",
+      "requires": [
+        "html4cj",
+        "stdx.encoding.json"
+      ],
+      "std-requires": [
+        "std.collection"
+      ],
+      "c_libs": {},
+      "hasTestFiles": false,
+      "hasProdFiles": true,
+      "hasTestsInProdFiles": false,
+      "accessLevel": "public"
+    },
+    {
+      "rootPackageName": "zlibraryClient4cj",
+      "modulePath": ".",
+      "packagePath": "D:\\projects\\cj\\zlibraryClient4cj\\src\\zlibclinet",
+      "fullName": "zlibraryClient4cj.zlibclinet",
+      "isMacroPackage": false,
+      "output-type": "dynamic",
+      "compile-option": "",
+      "native-compile-option": "",
+      "customized-option": {},
+      "link-option": "",
+      "native-link-option": "",
+      "requires": [
+        "html4cj",
+        "stdx.encoding.json",
+        "stdx.encoding.url",
+        "stdx.net.http",
+        "stdx.serialization.serialization",
+        "zlibraryClient4cj.common",
+        "zlibraryClient4cj.zlibclinet.utils",
+        "zlibraryClient4cj.zlibclinet.utils.zlibRequestUtils"
+      ],
+      "std-requires": [
+        "std.collection",
+        "std.io"
+      ],
+      "c_libs": {},
+      "hasTestFiles": false,
+      "hasProdFiles": true,
+      "hasTestsInProdFiles": false,
+      "accessLevel": "public"
+    }
+  ],
+  "binDeps": {
+    "html4cj": {
+      "package-requires": {
+        "stdx.log": {
+          "isMacroPackage": false,
+          "requires": [],
+          "std-requires": [
+            "std.collection",
+            "std.sync",
+            "std.time"
+          ],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.log"
+        },
+        "stdx.aspectCJ": {
+          "isMacroPackage": false,
+          "requires": [],
+          "std-requires": [],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.aspectCJ"
+        },
+        "stdx.crypto.x509": {
+          "isMacroPackage": false,
+          "requires": [
+            "stdx.crypto.crypto",
+            "stdx.encoding.base64",
+            "stdx.encoding.hex"
+          ],
+          "std-requires": [
+            "std.collection",
+            "std.convert",
+            "std.core",
+            "std.fs",
+            "std.io",
+            "std.time"
+          ],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.crypto.x509"
+        },
+        "stdx.encoding.json": {
+          "isMacroPackage": false,
+          "requires": [
+            "stdx.serialization.serialization"
+          ],
+          "std-requires": [
+            "std.collection",
+            "std.convert"
+          ],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.encoding.json"
+        },
+        "stdx.encoding.url": {
+          "isMacroPackage": false,
+          "requires": [],
+          "std-requires": [
+            "std.collection"
+          ],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.encoding.url"
+        },
+        "stdx": {
+          "isMacroPackage": false,
+          "requires": [],
+          "std-requires": [],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx"
+        },
+        "stdx.crypto.crypto": {
+          "isMacroPackage": false,
+          "requires": [
+            "stdx.crypto.digest"
+          ],
+          "std-requires": [
+            "std.crypto.cipher",
+            "std.io",
+            "std.math",
+            "std.sync"
+          ],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.crypto.crypto"
+        },
+        "stdx.crypto.keys": {
+          "isMacroPackage": false,
+          "requires": [
+            "stdx.crypto.digest",
+            "stdx.crypto.x509"
+          ],
+          "std-requires": [
+            "std.crypto.digest",
+            "std.io",
+            "std.math.numeric",
+            "std.sync"
+          ],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.crypto.keys"
+        },
+        "stdx.encoding.base64": {
+          "isMacroPackage": false,
+          "requires": [],
+          "std-requires": [],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.encoding.base64"
+        },
+        "stdx.encoding.hex": {
+          "isMacroPackage": false,
+          "requires": [],
+          "std-requires": [],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.encoding.hex"
+        },
+        "stdx.encoding": {
+          "isMacroPackage": false,
+          "requires": [],
+          "std-requires": [],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.encoding"
+        },
+        "stdx.encoding.json.stream": {
+          "isMacroPackage": false,
+          "requires": [],
+          "std-requires": [
+            "std.collection",
+            "std.convert",
+            "std.io",
+            "std.math.numeric",
+            "std.time"
+          ],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.encoding.json.stream"
+        },
+        "stdx.compress": {
+          "isMacroPackage": false,
+          "requires": [],
+          "std-requires": [],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.compress"
+        },
+        "stdx.crypto": {
+          "isMacroPackage": false,
+          "requires": [],
+          "std-requires": [],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.crypto"
+        },
+        "stdx.compress.zlib": {
+          "isMacroPackage": false,
+          "requires": [],
+          "std-requires": [
+            "std.collection",
+            "std.io"
+          ],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.compress.zlib"
+        },
+        "stdx.crypto.digest": {
+          "isMacroPackage": false,
+          "requires": [],
+          "std-requires": [
+            "std.crypto.digest"
+          ],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.crypto.digest"
+        },
+        "stdx.logger": {
+          "isMacroPackage": false,
+          "requires": [
+            "stdx.encoding.json.stream",
+            "stdx.log"
+          ],
+          "std-requires": [
+            "std.collection",
+            "std.collection.concurrent",
+            "std.io",
+            "std.sync",
+            "std.time"
+          ],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.logger"
+        },
+        "stdx.net": {
+          "isMacroPackage": false,
+          "requires": [],
+          "std-requires": [],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.net"
+        },
+        "stdx.net.http": {
+          "isMacroPackage": false,
+          "requires": [
+            "stdx.crypto.crypto",
+            "stdx.crypto.x509",
+            "stdx.encoding.base64",
+            "stdx.encoding.url",
+            "stdx.log",
+            "stdx.logger",
+            "stdx.net.tls"
+          ],
+          "std-requires": [
+            "std.collection",
+            "std.collection.concurrent",
+            "std.console",
+            "std.convert",
+            "std.fs",
+            "std.io",
+            "std.net",
+            "std.process",
+            "std.sort",
+            "std.sync",
+            "std.time",
+            "std.unicode"
+          ],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.net.http"
+        },
+        "stdx.net.tls": {
+          "isMacroPackage": false,
+          "requires": [
+            "stdx.crypto.digest",
+            "stdx.crypto.x509",
+            "stdx.encoding.hex"
+          ],
+          "std-requires": [
+            "std.collection.concurrent",
+            "std.io",
+            "std.net",
+            "std.sync",
+            "std.time"
+          ],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.net.tls"
+        },
+        "stdx.serialization": {
+          "isMacroPackage": false,
+          "requires": [],
+          "std-requires": [],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.serialization"
+        },
+        "stdx.serialization.serialization": {
+          "isMacroPackage": false,
+          "requires": [],
+          "std-requires": [
+            "std.collection"
+          ],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.serialization.serialization"
+        },
+        "stdx.unittest": {
+          "isMacroPackage": false,
+          "requires": [],
+          "std-requires": [],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.unittest"
+        },
+        "stdx.unittest.data": {
+          "isMacroPackage": false,
+          "requires": [
+            "stdx.encoding.json",
+            "stdx.serialization.serialization"
+          ],
+          "std-requires": [
+            "std.collection",
+            "std.convert",
+            "std.fs",
+            "std.io",
+            "std.math",
+            "std.unittest.common"
+          ],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.unittest.data"
+        }
+      },
+      "packageRequiresSort": [
+        "stdx",
+        "stdx.aspectCJ",
+        "stdx.compress",
+        "stdx.compress.zlib",
+        "stdx.crypto",
+        "stdx.crypto.digest",
+        "stdx.crypto.crypto",
+        "stdx.encoding",
+        "stdx.encoding.base64",
+        "stdx.encoding.hex",
+        "stdx.crypto.x509",
+        "stdx.crypto.keys",
+        "stdx.encoding.json.stream",
+        "stdx.encoding.url",
+        "stdx.log",
+        "stdx.logger",
+        "stdx.net",
+        "stdx.net.tls",
+        "stdx.net.http",
+        "stdx.serialization",
+        "stdx.serialization.serialization",
+        "stdx.encoding.json",
+        "stdx.unittest",
+        "stdx.unittest.data"
+      ]
+    },
+    "zlibraryClient4cj": {
+      "package-requires": {
+        "stdx.log": {
+          "isMacroPackage": false,
+          "requires": [],
+          "std-requires": [
+            "std.collection",
+            "std.sync",
+            "std.time"
+          ],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.log"
+        },
+        "stdx.aspectCJ": {
+          "isMacroPackage": false,
+          "requires": [],
+          "std-requires": [],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.aspectCJ"
+        },
+        "stdx.compress": {
+          "isMacroPackage": false,
+          "requires": [],
+          "std-requires": [],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.compress"
+        },
+        "stdx.encoding.url": {
+          "isMacroPackage": false,
+          "requires": [],
+          "std-requires": [
+            "std.collection"
+          ],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.encoding.url"
+        },
+        "stdx.encoding.json": {
+          "isMacroPackage": false,
+          "requires": [
+            "stdx.serialization.serialization"
+          ],
+          "std-requires": [
+            "std.collection",
+            "std.convert"
+          ],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.encoding.json"
+        },
+        "stdx": {
+          "isMacroPackage": false,
+          "requires": [],
+          "std-requires": [],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx"
+        },
+        "stdx.crypto.digest": {
+          "isMacroPackage": false,
+          "requires": [],
+          "std-requires": [
+            "std.crypto.digest"
+          ],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.crypto.digest"
+        },
+        "stdx.encoding.base64": {
+          "isMacroPackage": false,
+          "requires": [],
+          "std-requires": [],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.encoding.base64"
+        },
+        "stdx.encoding.hex": {
+          "isMacroPackage": false,
+          "requires": [],
+          "std-requires": [],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.encoding.hex"
+        },
+        "stdx.crypto.x509": {
+          "isMacroPackage": false,
+          "requires": [
+            "stdx.crypto.crypto",
+            "stdx.encoding.base64",
+            "stdx.encoding.hex"
+          ],
+          "std-requires": [
+            "std.collection",
+            "std.convert",
+            "std.core",
+            "std.fs",
+            "std.io",
+            "std.time"
+          ],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.crypto.x509"
+        },
+        "stdx.encoding": {
+          "isMacroPackage": false,
+          "requires": [],
+          "std-requires": [],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.encoding"
+        },
+        "stdx.compress.zlib": {
+          "isMacroPackage": false,
+          "requires": [],
+          "std-requires": [
+            "std.collection",
+            "std.io"
+          ],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.compress.zlib"
+        },
+        "stdx.crypto.keys": {
+          "isMacroPackage": false,
+          "requires": [
+            "stdx.crypto.digest",
+            "stdx.crypto.x509"
+          ],
+          "std-requires": [
+            "std.crypto.digest",
+            "std.io",
+            "std.math.numeric",
+            "std.sync"
+          ],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.crypto.keys"
+        },
+        "stdx.crypto.crypto": {
+          "isMacroPackage": false,
+          "requires": [
+            "stdx.crypto.digest"
+          ],
+          "std-requires": [
+            "std.crypto.cipher",
+            "std.io",
+            "std.math",
+            "std.sync"
+          ],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.crypto.crypto"
+        },
+        "stdx.crypto": {
+          "isMacroPackage": false,
+          "requires": [],
+          "std-requires": [],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.crypto"
+        },
+        "stdx.encoding.json.stream": {
+          "isMacroPackage": false,
+          "requires": [],
+          "std-requires": [
+            "std.collection",
+            "std.convert",
+            "std.io",
+            "std.math.numeric",
+            "std.time"
+          ],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.encoding.json.stream"
+        },
+        "stdx.logger": {
+          "isMacroPackage": false,
+          "requires": [
+            "stdx.encoding.json.stream",
+            "stdx.log"
+          ],
+          "std-requires": [
+            "std.collection",
+            "std.collection.concurrent",
+            "std.io",
+            "std.sync",
+            "std.time"
+          ],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.logger"
+        },
+        "stdx.net": {
+          "isMacroPackage": false,
+          "requires": [],
+          "std-requires": [],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.net"
+        },
+        "stdx.net.http": {
+          "isMacroPackage": false,
+          "requires": [
+            "stdx.crypto.crypto",
+            "stdx.crypto.x509",
+            "stdx.encoding.base64",
+            "stdx.encoding.url",
+            "stdx.log",
+            "stdx.logger",
+            "stdx.net.tls"
+          ],
+          "std-requires": [
+            "std.collection",
+            "std.collection.concurrent",
+            "std.console",
+            "std.convert",
+            "std.fs",
+            "std.io",
+            "std.net",
+            "std.process",
+            "std.sort",
+            "std.sync",
+            "std.time",
+            "std.unicode"
+          ],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.net.http"
+        },
+        "stdx.serialization": {
+          "isMacroPackage": false,
+          "requires": [],
+          "std-requires": [],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.serialization"
+        },
+        "stdx.net.tls": {
+          "isMacroPackage": false,
+          "requires": [
+            "stdx.crypto.digest",
+            "stdx.crypto.x509",
+            "stdx.encoding.hex"
+          ],
+          "std-requires": [
+            "std.collection.concurrent",
+            "std.io",
+            "std.net",
+            "std.sync",
+            "std.time"
+          ],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.net.tls"
+        },
+        "stdx.unittest": {
+          "isMacroPackage": false,
+          "requires": [],
+          "std-requires": [],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.unittest"
+        },
+        "stdx.serialization.serialization": {
+          "isMacroPackage": false,
+          "requires": [],
+          "std-requires": [
+            "std.collection"
+          ],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.serialization.serialization"
+        },
+        "stdx.unittest.data": {
+          "isMacroPackage": false,
+          "requires": [
+            "stdx.encoding.json",
+            "stdx.serialization.serialization"
+          ],
+          "std-requires": [
+            "std.collection",
+            "std.convert",
+            "std.fs",
+            "std.io",
+            "std.math",
+            "std.unittest.common"
+          ],
+          "cjPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic",
+          "libPath": "D:\\programes\\SDK\\cangjie\\cangjiestdx/windows_x86_64_llvm/dynamic/stdx",
+          "libName": "stdx.unittest.data"
+        }
+      },
+      "packageRequiresSort": [
+        "stdx",
+        "stdx.aspectCJ",
+        "stdx.compress",
+        "stdx.compress.zlib",
+        "stdx.crypto",
+        "stdx.crypto.digest",
+        "stdx.crypto.crypto",
+        "stdx.encoding",
+        "stdx.encoding.base64",
+        "stdx.encoding.hex",
+        "stdx.crypto.x509",
+        "stdx.crypto.keys",
+        "stdx.encoding.json.stream",
+        "stdx.encoding.url",
+        "stdx.log",
+        "stdx.logger",
+        "stdx.net",
+        "stdx.net.tls",
+        "stdx.net.http",
+        "stdx.serialization",
+        "stdx.serialization.serialization",
+        "stdx.encoding.json",
+        "stdx.unittest",
+        "stdx.unittest.data"
+      ]
+    }
+  },
+  "crossBinDeps": {}
+}
