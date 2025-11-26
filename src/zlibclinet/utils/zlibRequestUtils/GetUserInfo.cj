@@ -1,6 +1,6 @@
 package zlibraryAPI4CJ.zlibclinet.utils.zlibRequestUtils
 
-public func GetUserInfo(htmlString: String): JsonObject {
+public func getUserInfoU(htmlString: String): JsonObject {
     var doc: Document = Html4cj.parse(htmlString)
     var ascriptAll: Elements = doc.select('z-account')
 

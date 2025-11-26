@@ -10,13 +10,13 @@ public class ZlibUser {
     public init(_account: String, _password: String) {
         account = _account
         password = _password
-        let loginRes = this.Login()
+        let loginRes = this.login()
         if (loginRes[0] == 1) {
             cookie = loginRes[1]
         }
     }
 
-    public func RefreashUrl(): (Int64, String) {
+    public func refreashUrl(): (Int64, String) {
         try {
             let client = ClientBuilder().tlsConfig(getTlsConfig()).autoRedirect(false).build()
 
@@ -35,7 +35,7 @@ public class ZlibUser {
         }
     }
 
-    public func Login(): (Int64, String) {
+    public func login(): (Int64, String) {
         try {
             if (account == '' || password == '') {
                 throw Exception('账号或者密码为空')
@@ -80,7 +80,7 @@ public class ZlibUser {
         }
     }
 
-    public func GetUserInfo() {
+    public func getUserInfo() {
         try {
             let client = ClientBuilder().tlsConfig(getTlsConfig()).build()
 
@@ -95,13 +95,13 @@ public class ZlibUser {
             let res = StringReader(response.body).readToEnd()
 
             client.close()
-            (Int64(response.status), GetUserInfo(res).toJsonString())
+            (Int64(response.status), getUserInfoU(res).toJsonString())
         } catch (error: Exception) {
             (-1, error.toString())
         }
     }
 
-    public func GetRecommendBook(page!: Int64 = 1): (Int64, RecommendBookRes) {
+    public func getRecommendBook(page!: Int64 = 1): (Int64, RecommendBookRes) {
         try {
             let client = ClientBuilder().tlsConfig(getTlsConfig()).build()
 
