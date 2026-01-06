@@ -1,7 +1,5 @@
 package zlibraryAPI4CJ.dataModel
 
-import stdx.encoding.json.ToJson
-
 public struct RecommendBookRes <: Serializable<RecommendBookRes> {
     public var success: Int8 = 0
     public var books: Array<ZlibRecommendBook> = []
@@ -41,7 +39,7 @@ public struct ZlibRecommendBook <: Serializable<ZlibRecommendBook> {
             let res = BookInfoRes.deserialize(response.getBodyDataModel())
             res
         } catch (err: Exception) {
-            throw Exception('获取错误，错误信息${err.toString()}')
+           throw Exception('获取错误，错误信息${err.message}')
         }
     }
 
