@@ -1,4 +1,3 @@
-[33mwarning[0m: '--coverage' should be used without optimizations.
 [33mwarning[0m: unused import 'std.io.InputStream'
   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\import.cj:22:1:
    [36m| [0m
@@ -238,30 +237,6 @@
     [36m| [0m
     [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff unused`
 
-[33mwarning[0m: unused variable:'ignored'
-   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\tokeniser.cj:234:18:
-    [36m| [0m
-[36m234[0m [36m| [0m        } catch (ignored: IllegalArgumentException) {[0m
-    [36m| [0m                 [33m^^^^^^^ unused variable[0m
-    [36m| [0m
-    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff unused`
-
-[33mwarning[0m: unused variable:'e'
-   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\string_util.cj:302:18:
-    [36m| [0m
-[36m302[0m [36m| [0m        } catch (e: UrlSyntaxException | IllegalArgumentException) {[0m
-    [36m| [0m                 [33m^ unused variable[0m
-    [36m| [0m
-    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff unused`
-
-[33mwarning[0m: unused variable:'e'
-   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\string_util.cj:325:18:
-    [36m| [0m
-[36m325[0m [36m| [0m        } catch (e: UrlSyntaxException | IllegalArgumentException) {[0m
-    [36m| [0m                 [33m^ unused variable[0m
-    [36m| [0m
-    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff unused`
-
 [33mwarning[0m: unreachable block in 'if' expression
    [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\node.cj:510:27:
     [36m| [0m
@@ -285,14 +260,6 @@
     [36m| [0m
     [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff unused`
 
-[33mwarning[0m: unused variable:'e'
-   [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\html_tree_builder.cj:880:18:
-    [36m| [0m
-[36m880[0m [36m| [0m        } catch (e: IndexOutOfBoundsException) {[0m
-    [36m| [0m                 [33m^ unused variable[0m
-    [36m| [0m
-    [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff unused`
-
 [33mwarning[0m: unreachable block in 'if' expression
    [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\html_tree_builder_state.cj:921:41:
     [36m| [0m
@@ -304,28 +271,4 @@
     [36m| [0m
     [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff unused`
 
-[33mwarning[0m: unused variable:'e'
-    [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\element.cj:1051:18:
-     [36m| [0m
-[36m1051[0m [36m| [0m        } catch (e: IllegalArgumentException) {[0m
-     [36m| [0m                 [33m^ unused variable[0m
-     [36m| [0m
-     [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff unused`
-
-[33mwarning[0m: unused variable:'e'
-    [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\element.cj:1128:18:
-     [36m| [0m
-[36m1128[0m [36m| [0m        } catch (e: IllegalArgumentException) {[0m
-     [36m| [0m                 [33m^ unused variable[0m
-     [36m| [0m
-     [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff unused`
-
-[33mwarning[0m: unused variable:'e'
-    [36m==>[0m C:\Users\liluo\.cjpm\git\html4cj\08133b56d200ee1c3b75cb16abdd0edb69c2ad87\src\element.cj:1153:18:
-     [36m| [0m
-[36m1153[0m [36m| [0m        } catch (e: IllegalArgumentException) {[0m
-     [36m| [0m                 [33m^ unused variable[0m
-     [36m| [0m
-     [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff unused`
-
-39 warnings generated, 39 warnings printed.
+32 warnings generated, 32 warnings printed.

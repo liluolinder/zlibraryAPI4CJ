@@ -1,7 +1,7 @@
 {
     "terminal.integrated.env.windows": {
-        "CANGJIE_HOME": "D:\\programes\\SDK\\cangjie\\Cangjie",
-        "CANGJIE_PATH": "D:\\programes\\SDK\\cangjie\\Cangjie\\runtime\\lib\\windows_x86_64_llvm;D:\\programes\\SDK\\cangjie\\Cangjie\\bin;D:\\programes\\SDK\\cangjie\\Cangjie\\tools\\bin;D:\\programes\\SDK\\cangjie\\Cangjie\\tools\\lib;D:\\programes\\SDK\\cangjie\\Cangjie\\debugger\\bin;C:\\Users\\liluo\\.cjpm\\bin",
+        "CANGJIE_HOME": "D:\\linderSeline\\programes\\SDK\\Cangjie\\Cangjie",
+        "CANGJIE_PATH": "D:\\linderSeline\\programes\\SDK\\Cangjie\\Cangjie\\runtime\\lib\\windows_x86_64_llvm;D:\\linderSeline\\programes\\SDK\\Cangjie\\Cangjie\\bin;D:\\linderSeline\\programes\\SDK\\Cangjie\\Cangjie\\tools\\bin;D:\\linderSeline\\programes\\SDK\\Cangjie\\Cangjie\\tools\\lib;D:\\linderSeline\\programes\\SDK\\Cangjie\\Cangjie\\debugger\\bin;C:\\Users\\liluo\\.cjpm\\bin",
         "PATH": "${config:terminal.integrated.env.windows.CANGJIE_PATH};${env:PATH}"
     },
     "editor.gotoLocation.alternativeDeclarationCommand": "editor.action.revealDefinition",

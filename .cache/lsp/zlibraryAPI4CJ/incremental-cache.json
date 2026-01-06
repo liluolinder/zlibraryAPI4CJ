@@ -1,0 +1,30 @@
+{
+  "packageInformation": {
+    "zlibraryAPI4CJ": {
+      "rootPackageName": "zlibraryAPI4CJ",
+      "fileNameHash": "-7556455546632293175",
+      "timeStamp": 1767705204,
+      "isBuilt": true,
+      "exeName": "",
+      "hasSubPkgs": true
+    },
+    "zlibraryAPI4CJ.dataModel": {
+      "rootPackageName": "zlibraryAPI4CJ",
+      "fileNameHash": "-109685445768421283",
+      "timeStamp": 1767705592,
+      "isBuilt": true,
+      "exeName": "",
+      "hasSubPkgs": false
+    },
+    "zlibraryAPI4CJ.common": {
+      "rootPackageName": "zlibraryAPI4CJ",
+      "fileNameHash": "1265814152268214036",
+      "timeStamp": 1767702873,
+      "isBuilt": true,
+      "exeName": "",
+      "hasSubPkgs": false
+    }
+  },
+  "jsonHash": "2664201256176883292",
+  "rootPackageName": "zlibraryAPI4CJ"
+}

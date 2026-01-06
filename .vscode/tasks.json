@@ -1,0 +1,21 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "cangjieDebugBuild",
+			"cmd": "C:/Windows/System32/cmd.exe",
+			"args": [
+				"/C",
+				"chcp",
+				"65001",
+				"&&",
+				"D:\\linderSeline\\programes\\SDK\\Cangjie\\Cangjie\\bin\\cjc.exe",
+				"-g",
+				"d:\\linderSeline\\projects\\Cangjie\\zlibraryAPI4CJ\\src\\dataModel\\recommendBook.cj",
+				"-o",
+				"d:\\linderSeline\\projects\\Cangjie\\zlibraryAPI4CJ\\src\\dataModel\\recommendBook.exe"
+			],
+			"label": "cangjieDebug build task - xFTUzFSvca"
+		}
+	]
+}

@@ -2,3 +2,4 @@ version = 0
 
 [requires]
   html4cj = {git = "https://gitcode.com/Cangjie-TPC/html4cj.git", commitId = "08133b56d200ee1c3b75cb16abdd0edb69c2ad87", branch = "develop"}
+  cjjson = {git = "https://gitcode.com/Cangjie-TPC/cangjieJSON.git", commitId = "19258cf213683919914c1ffc928c59880e54ea9d", branch = "cjc_1.0.3"}
