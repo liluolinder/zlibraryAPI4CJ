@@ -1,9 +1,0 @@
-[33mwarning[0m: unused variable:'res'
-  [36m==>[0m D:\linderSeline\projects\Cangjie\zlibraryAPI4CJ\src\client.cj:18:13:
-   [36m| [0m
-[36m18[0m [36m| [0m        let res = httpClient.send()[0m
-   [36m| [0m            [33m^^^ unused variable[0m
-   [36m| [0m
-   [36m#[0m [0mnote[0m: this warning can be suppressed by setting the compiler option `-Woff unused`
-
-1 warning generated, 1 warning printed.
