@@ -1,11 +1,11 @@
 package zlibraryAPI4CJ.dataModel
 
 public struct BookInfoRes <: Serializable<BookInfoRes> {
-    public var success: Int8 = 0
+    public var success: UInt8 = 0
     public var book: BookInfo = BookInfo()
 
     public func serialize(): DataModel {
-        return DataModelStruct().add(field<Int8>("success", success)).add(field<BookInfo>("book", book))
+        return DataModelStruct().add(field<UInt8>("success", success)).add(field<BookInfo>("book", book))
     }
 
     public static func deserialize(dm: DataModel): BookInfoRes {
@@ -14,7 +14,7 @@ public struct BookInfoRes <: Serializable<BookInfoRes> {
             case _ => throw Exception("this data is not DataModelStruct")
         }
         var result = BookInfoRes()
-        result.success = Int8.deserialize(dms.get("success"))
+        result.success = UInt8.deserialize(dms.get("success"))
         result.book = BookInfo.deserialize(dms.get("book"))
         return result
     }

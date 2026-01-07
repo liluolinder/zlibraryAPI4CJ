@@ -8,11 +8,11 @@ import stdx.serialization.serialization.*
 import stdx.encoding.json.*
 
 public class ZlibClient {
-    public func loginIn(email!: String, password!: String) {
+
+    public func loginIn(email!: String, password!: String):GetUserInfoOrLoginRes {
         let body = Form()
         body.add("email", email)
         body.add("password", password)
-
         let response = httpClient
             .destory()
             .setDefaultHeader()
@@ -20,8 +20,13 @@ public class ZlibClient {
             .setMehod(RequestMethod.POST)
             .setBody(body)
             .send()
-
-        response.getBodyJsonString() |> println
+        try {
+            let res = GetUserInfoOrLoginRes.deserialize(response.getBodyDataModel())
+            res
+        } catch (err: Exception) {
+            throw Exception('获取错误，错误信息${err.message}')
+        }
+  
     }
 
     public func getRecommendBook(): RecommendBookRes {
