@@ -29,17 +29,13 @@ public struct ZlibRecommendBook <: Serializable<ZlibRecommendBook> {
     public var hash: String = ''
 
     public func getBookInfo(): BookInfoRes {
-        httpClient.destory()
-        httpClient.setDefaultHeader()
-        httpClient.setUrl("${zlibEAPI}/book/${id}/${hash}")
-
-        let response = httpClient.send()
+        let response = httpClient.destory().setDefaultHeader().setUrl("${zlibEAPI}/book/${id}/${hash}").send()
 
         try {
             let res = BookInfoRes.deserialize(response.getBodyDataModel())
             res
         } catch (err: Exception) {
-           throw Exception('获取错误，错误信息${err.message}')
+            throw Exception('获取错误，错误信息${err.message}')
         }
     }
 
