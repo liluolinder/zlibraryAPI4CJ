@@ -7,13 +7,14 @@ public struct GetUserInfoOrLoginRes <: Serializable<GetUserInfoOrLoginRes> {
 
     public var userInfo: ?UserInfo = None
 
+
+
     public func serialize(): DataModel {
         return DataModelStruct()
             .add(field<UInt8>("success", success))
             .add(field<?String>("error", errorInfo))
             .add(field<?UserInfo>("user", userInfo))
     }
-
     public static func deserialize(dm: DataModel): GetUserInfoOrLoginRes {
         var dms = match (dm) {
             case data: DataModelStruct => data
@@ -40,6 +41,8 @@ public struct UserInfo <: Serializable<UserInfo> {
     // "confirmed": 1,
     // "isPremium": 0
 
+
+
     public func serialize(): DataModel {
         return DataModelStruct()
             .add(field<UInt64>("id", id))
@@ -50,7 +53,6 @@ public struct UserInfo <: Serializable<UserInfo> {
             .add(field<UInt64>("downloads_today", todyDownloadNum))
             .add(field<UInt64>("downloads_limit", downloadLimit))
     }
-
     public static func deserialize(dm: DataModel): UserInfo {
         var dms = match (dm) {
             case data: DataModelStruct => data

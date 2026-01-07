@@ -4,10 +4,11 @@ public struct BookInfoRes <: Serializable<BookInfoRes> {
     public var success: UInt8 = 0
     public var book: BookInfo = BookInfo()
 
+
+
     public func serialize(): DataModel {
         return DataModelStruct().add(field<UInt8>("success", success)).add(field<BookInfo>("book", book))
     }
-
     public static func deserialize(dm: DataModel): BookInfoRes {
         var dms = match (dm) {
             case data: DataModelStruct => data
@@ -54,6 +55,8 @@ public struct BookInfo <: Serializable<BookInfo> {
     public var isUserSavedBook: Bool = false
     public var readOnlineAvailable: Bool = false
 
+
+
     public func serialize(): DataModel {
         return DataModelStruct()
             .add(field<UInt64>("id", id))
@@ -89,7 +92,6 @@ public struct BookInfo <: Serializable<BookInfo> {
             .add(field<Bool>("_isUserSavedBook", isUserSavedBook))
             .add(field<Bool>("readOnlineAvailable", readOnlineAvailable))
     }
-
     public static func deserialize(dm: DataModel): BookInfo {
         var dms = match (dm) {
             case data: DataModelStruct => data

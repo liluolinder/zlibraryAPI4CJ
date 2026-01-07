@@ -3,12 +3,14 @@ package zlibraryAPI4CJ.dataModel
 public struct RecommendBookRes <: Serializable<RecommendBookRes> {
     public var success: UInt8 = 0
     public var books: Array<ZlibRecommendBook> = []
+
+
+
     public func serialize(): DataModel {
         return DataModelStruct()
             .add(field<UInt8>("success", success))
             .add(field<Array<ZlibRecommendBook>>("books", books))
     }
-
     public static func deserialize(dm: DataModel): RecommendBookRes {
         var dms = match (dm) {
             case data: DataModelStruct => data
@@ -39,6 +41,8 @@ public struct ZlibRecommendBook <: Serializable<ZlibRecommendBook> {
         }
     }
 
+
+
     public func serialize(): DataModel {
         return DataModelStruct()
             .add(field<UInt64>("id", id))
@@ -47,7 +51,6 @@ public struct ZlibRecommendBook <: Serializable<ZlibRecommendBook> {
             .add(field<String>("cover", cover))
             .add(field<String>("hash", hash))
     }
-
     public static func deserialize(dm: DataModel): ZlibRecommendBook {
         var dms = match (dm) {
             case data: DataModelStruct => data
