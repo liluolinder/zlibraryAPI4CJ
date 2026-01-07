@@ -24,12 +24,12 @@ public struct BookInfo <: Serializable<BookInfo> {
     public var id: UInt64 = 0
     public var contentType: String = ''
     public var title: String = ''
-    public var author: String = ''
+    public var author:?String = ''
     public var volume: String = ''
     public var year: UInt64 = 0
-    public var edition: String = ''
-    public var publisher: String = ''
-    public var identifier: String = ''
+    public var edition: ?String = ''
+    public var publisher: ?String = ''
+    public var identifier: ?String = ''
     public var language: String = ''
     public var pages: UInt64 = 0
     public var series: String = ''
@@ -59,12 +59,12 @@ public struct BookInfo <: Serializable<BookInfo> {
             .add(field<UInt64>("id", id))
             .add(field<String>("content_type", contentType))
             .add(field<String>("title", title))
-            .add(field<String>("author", author))
+            .add(field<?String>("author", author))
             .add(field<String>("volume", volume))
             .add(field<UInt64>("year", year))
-            .add(field<String>("edition", edition))
-            .add(field<String>("publisher", publisher))
-            .add(field<String>("identifier", identifier))
+            .add(field<?String>("edition", edition))
+            .add(field<?String>("publisher", publisher))
+            .add(field<?String>("identifier", identifier))
             .add(field<String>("language", language))
             .add(field<UInt64>("pages", pages))
             .add(field<String>("series", series))
@@ -99,12 +99,12 @@ public struct BookInfo <: Serializable<BookInfo> {
         result.id = UInt64.deserialize(dms.get("id"))
         result.contentType = String.deserialize(dms.get("content_type"))
         result.title = String.deserialize(dms.get("title"))
-        result.author = String.deserialize(dms.get("author"))
+        result.author = Option<String>.deserialize(dms.get("author"))
         result.volume = String.deserialize(dms.get("volume"))
         result.year = UInt64.deserialize(dms.get("year"))
-        result.edition = String.deserialize(dms.get("edition"))
-        result.publisher = String.deserialize(dms.get("publisher"))
-        result.identifier = String.deserialize(dms.get("identifier"))
+        result.edition = Option<String>.deserialize(dms.get("edition"))
+        result.publisher = Option<String>.deserialize(dms.get("publisher"))
+        result.identifier = Option<String>.deserialize(dms.get("identifier"))
         result.language = String.deserialize(dms.get("language"))
         result.pages = UInt64.deserialize(dms.get("pages"))
         result.series = String.deserialize(dms.get("series"))

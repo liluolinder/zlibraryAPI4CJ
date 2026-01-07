@@ -30,7 +30,7 @@ public struct ZlibRecommendBook <: Serializable<ZlibRecommendBook> {
 
     public func getBookInfo(): BookInfoRes {
         let response = httpClient.destory().setDefaultHeader().setUrl("${zlibEAPI}/book/${id}/${hash}").send()
-
+        //response.getBodyJsonString() |> println
         try {
             let res = BookInfoRes.deserialize(response.getBodyDataModel())
             res
