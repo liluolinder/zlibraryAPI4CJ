@@ -49,6 +49,7 @@ public class BookInfoBrief <: Serializable<BookInfoBrief> {
     public func getSimilarBook(): GetBookRes {
         let response = httpClient
             .destory()
+            .setDefaultHeader()
             .setUrl("${zlibEAPI}/book/${id}/${hash}/similar")
             .setMehod(RequestMethod.GET)
             .send()

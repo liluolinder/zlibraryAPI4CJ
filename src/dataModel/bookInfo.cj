@@ -57,6 +57,7 @@ public class BookInfo <: Serializable<BookInfo> {
     public func saveBook(cookie!: String): Bool {
         let response = httpClient
             .destory()
+            .setDefaultHeader()
             .setUrl("${zlibEAPI}/user/book/${id}/save")
             .setMehod(RequestMethod.GET)
             .setIntercept(Intercept(requestL: {
@@ -91,6 +92,7 @@ public class BookInfo <: Serializable<BookInfo> {
     public func getSimilarBook(): GetBookRes {
         let response = httpClient
             .destory()
+            .setDefaultHeader()
             .setUrl("${zlibEAPI}/book/${id}/${hash}/similar")
             .setMehod(RequestMethod.GET)
             .send()
@@ -103,9 +105,10 @@ public class BookInfo <: Serializable<BookInfo> {
         }
     }
 
-    public func getDownloadInfo(cookie!: String){
-         let response = httpClient
+    public func getDownloadInfo(cookie!: String) {
+        let response = httpClient
             .destory()
+            .setDefaultHeader()
             .setUrl("${zlibEAPI}/book/${id}/${hash}/file")
             .setMehod(RequestMethod.GET)
             .setIntercept(Intercept(requestL: {
@@ -114,8 +117,8 @@ public class BookInfo <: Serializable<BookInfo> {
             .send()
 
         try {
-           let res = GetDownloadInfoRes.deserialize(response.getBodyDataModel())
-           res
+            let res = GetDownloadInfoRes.deserialize(response.getBodyDataModel())
+            res
         } catch (err: Exception) {
             throw Exception('获取错误，错误信息${err.message}')
         }
