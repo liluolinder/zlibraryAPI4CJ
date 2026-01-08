@@ -87,7 +87,7 @@ public class ZlibUserInfo <: Serializable<ZlibUserInfo> {
         }
     }
 
-    public func getRecommendBook(): RecommendBookRes {
+    public func getRecommendBook(): GetBookRes {
         let response = httpClient
             .destory()
             .setHeader(header)
@@ -96,7 +96,7 @@ public class ZlibUserInfo <: Serializable<ZlibUserInfo> {
             .send()
 
         try {
-            let res = RecommendBookRes.deserialize(response.getBodyDataModel())
+            let res = GetBookRes.deserialize(response.getBodyDataModel())
             res
         } catch (err: Exception) {
             throw Exception('获取错误，错误信息${err.message}')

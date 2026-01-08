@@ -1,27 +1,27 @@
 package zlibraryAPI4CJ.dataModel
 
-public struct RecommendBookRes <: Serializable<RecommendBookRes> {
+public struct GetBookRes <: Serializable<GetBookRes> {
     public var success: UInt8 = 0
-    public var books: Array<ZlibRecommendBook> = []
+    public var books: Array<BookInfoBrief> = []
 
     public func serialize(): DataModel {
         return DataModelStruct()
             .add(field<UInt8>("success", success))
-            .add(field<Array<ZlibRecommendBook>>("books", books))
+            .add(field<Array<BookInfoBrief>>("books", books))
     }
-    public static func deserialize(dm: DataModel): RecommendBookRes {
+    public static func deserialize(dm: DataModel): GetBookRes {
         var dms = match (dm) {
             case data: DataModelStruct => data
             case _ => throw Exception("this data is not DataModelStruct")
         }
-        var result = RecommendBookRes()
+        var result = GetBookRes()
         result.success = UInt8.deserialize(dms.get("success"))
-        result.books = Array<ZlibRecommendBook>.deserialize(dms.get("books"))
+        result.books = Array<BookInfoBrief>.deserialize(dms.get("books"))
         return result
     }
 }
 
-public class ZlibRecommendBook <: Serializable<ZlibRecommendBook> {
+public class BookInfoBrief <: Serializable<BookInfoBrief> {
     public var id: UInt64 = 0
     public var title: String = ''
     public var author: String = ''
@@ -48,6 +48,21 @@ public class ZlibRecommendBook <: Serializable<ZlibRecommendBook> {
         }
     }
 
+    public func getSimilarBook():GetBookRes{
+        let response = httpClient
+            .destory()
+            .setUrl("${zlibEAPI}/book/${id}/${hash}/similar")
+            .setMehod(RequestMethod.GET)
+            .send()
+
+        try {
+            let res = GetBookRes.deserialize(response.getBodyDataModel())
+            res
+        } catch (err: Exception) {
+            throw Exception('获取错误，错误信息${err.message}')
+        }
+    }
+
     public func serialize(): DataModel {
         return DataModelStruct()
             .add(field<UInt64>("id", id))
@@ -56,12 +71,12 @@ public class ZlibRecommendBook <: Serializable<ZlibRecommendBook> {
             .add(field<String>("cover", cover))
             .add(field<String>("hash", hash))
     }
-    public static func deserialize(dm: DataModel): ZlibRecommendBook {
+    public static func deserialize(dm: DataModel): BookInfoBrief {
         var dms = match (dm) {
             case data: DataModelStruct => data
             case _ => throw Exception("this data is not DataModelStruct")
         }
-        var result = ZlibRecommendBook()
+        var result = BookInfoBrief()
         result.id = UInt64.deserialize(dms.get("id"))
         result.title = String.deserialize(dms.get("title"))
         result.author = String.deserialize(dms.get("author"))

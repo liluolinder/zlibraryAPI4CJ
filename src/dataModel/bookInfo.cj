@@ -92,6 +92,21 @@ public class BookInfo <: Serializable<BookInfo> {
         }
     }
 
+    public func getSimilarBook():GetBookRes{
+        let response = httpClient
+            .destory()
+            .setUrl("${zlibEAPI}/book/${id}/${hash}/similar")
+            .setMehod(RequestMethod.GET)
+            .send()
+
+        try {
+            let res = GetBookRes.deserialize(response.getBodyDataModel())
+            res
+        } catch (err: Exception) {
+            throw Exception('获取错误，错误信息${err.message}')
+        }
+    }
+
     public func serialize(): DataModel {
         return DataModelStruct()
             .add(field<UInt64>("id", id))
