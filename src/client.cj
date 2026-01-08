@@ -26,7 +26,13 @@ public class ZlibClient {
         } catch (err: Exception) {
             throw Exception('获取错误，错误信息${err.message}')
         }
-  
+    }
+
+    public func loginIn(userID!:UInt64, userKey!:String):GetUserInfoOrLoginRes{
+        let tempUserInfo:ZlibUserInfo = ZlibUserInfo()
+        tempUserInfo.id = userID
+        tempUserInfo.remixUserkey = userKey
+        tempUserInfo.getPersonalInfo()
     }
 
     public func getRecommendBook(): RecommendBookRes {

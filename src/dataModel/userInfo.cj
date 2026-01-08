@@ -5,15 +5,13 @@ public struct GetUserInfoOrLoginRes <: Serializable<GetUserInfoOrLoginRes> {
 
     public var errorInfo: ?String = ''
 
-    public var userInfo: ?UserInfo = None
-
-
+    public var userInfo: ?ZlibUserInfo = None
 
     public func serialize(): DataModel {
         return DataModelStruct()
             .add(field<UInt8>("success", success))
             .add(field<?String>("error", errorInfo))
-            .add(field<?UserInfo>("user", userInfo))
+            .add(field<?ZlibUserInfo>("user", userInfo))
     }
     public static func deserialize(dm: DataModel): GetUserInfoOrLoginRes {
         var dms = match (dm) {
@@ -23,12 +21,12 @@ public struct GetUserInfoOrLoginRes <: Serializable<GetUserInfoOrLoginRes> {
         var result = GetUserInfoOrLoginRes()
         result.success = UInt8.deserialize(dms.get("success"))
         result.errorInfo = Option<String>.deserialize(dms.get("error"))
-        result.userInfo = Option<UserInfo>.deserialize(dms.get("user"))
+        result.userInfo = Option<ZlibUserInfo>.deserialize(dms.get("user"))
         return result
     }
 }
 
-public struct UserInfo <: Serializable<UserInfo> {
+public class ZlibUserInfo <: Serializable<ZlibUserInfo> {
     public var id: UInt64 = 0
     public var email: String = ""
     public var name: String = ""
@@ -40,6 +38,74 @@ public struct UserInfo <: Serializable<UserInfo> {
     // "donations_expire": null,
     // "confirmed": 1,
     // "isPremium": 0
+
+    public prop cookie: String {
+        get() {
+            'siteLanguage=zh; remix_userkey=${remixUserkey}; remix_userid=${id}'
+        }
+    }
+
+    private prop header: LinderHttpHeader {
+        get() {
+            let header: LinderHttpHeader = LinderHttpHeader().set(key: "cookie", value: cookie)
+            header
+        }
+    }
+
+    public func getPersonalInfo(): GetUserInfoOrLoginRes {
+        let response = httpClient
+            .destory()
+            .setHeader(header)
+            .setUrl("${zlibEAPI}/user/profile")
+            .setMehod(RequestMethod.GET)
+            .send()
+
+        try {
+            let res = GetUserInfoOrLoginRes.deserialize(response.getBodyDataModel())
+            res
+        } catch (err: Exception) {
+            throw Exception('获取错误，错误信息${err.message}')
+        }
+    }
+
+    public func getSaved(page!:UInt64 = 1){
+
+        let param = Form()
+        param.add("page","${page}")
+
+        let response = httpClient
+            .destory()
+            .setHeader(header)
+            .setUrl("${zlibEAPI}/user/book/saved")
+            .setMehod(RequestMethod.GET)
+            .setBody(param)
+            .send()
+
+        response.getBodyJsonString() |> println
+
+        try {
+            let res = RecommendBookRes.deserialize(response.getBodyDataModel())
+            res
+        } catch (err: Exception) {
+            throw Exception('获取错误，错误信息${err.message}')
+        }
+    }
+
+    public func getRecommendBook():RecommendBookRes {
+        let response = httpClient
+            .destory()
+            .setHeader(header)
+            .setUrl("${zlibEAPI}/user/book/recommended")
+            .setMehod(RequestMethod.GET)
+            .send()
+
+        try {
+            let res = RecommendBookRes.deserialize(response.getBodyDataModel())
+            res
+        } catch (err: Exception) {
+            throw Exception('获取错误，错误信息${err.message}')
+        }
+    }
 
 
 
@@ -53,12 +119,12 @@ public struct UserInfo <: Serializable<UserInfo> {
             .add(field<UInt64>("downloads_today", todyDownloadNum))
             .add(field<UInt64>("downloads_limit", downloadLimit))
     }
-    public static func deserialize(dm: DataModel): UserInfo {
+    public static func deserialize(dm: DataModel): ZlibUserInfo {
         var dms = match (dm) {
             case data: DataModelStruct => data
             case _ => throw Exception("this data is not DataModelStruct")
         }
-        var result = UserInfo()
+        var result = ZlibUserInfo()
         result.id = UInt64.deserialize(dms.get("id"))
         result.email = String.deserialize(dms.get("email"))
         result.name = String.deserialize(dms.get("name"))

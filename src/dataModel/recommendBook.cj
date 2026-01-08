@@ -4,8 +4,6 @@ public struct RecommendBookRes <: Serializable<RecommendBookRes> {
     public var success: UInt8 = 0
     public var books: Array<ZlibRecommendBook> = []
 
-
-
     public func serialize(): DataModel {
         return DataModelStruct()
             .add(field<UInt8>("success", success))
@@ -23,16 +21,26 @@ public struct RecommendBookRes <: Serializable<RecommendBookRes> {
     }
 }
 
-public struct ZlibRecommendBook <: Serializable<ZlibRecommendBook> {
+public class ZlibRecommendBook <: Serializable<ZlibRecommendBook> {
     public var id: UInt64 = 0
     public var title: String = ''
     public var author: String = ''
     public var cover: String = ''
     public var hash: String = ''
 
-    public func getBookInfo(): BookInfoRes {
-        let response = httpClient.destory().setDefaultHeader().setUrl("${zlibEAPI}/book/${id}/${hash}").send()
-        //response.getBodyJsonString() |> println
+    public func getBookInfo(cookie!:?String = None): BookInfoRes {
+        let response = 
+        httpClient.destory()
+        .setDefaultHeader()
+        .setIntercept(Intercept(requestL: {
+            http => 
+                if(cookie.isSome()){
+                    http.httpHeader.set(key:"cookie", value:cookie.getOrThrow())
+                }
+            }))
+        .setUrl("${zlibEAPI}/book/${id}/${hash}")
+        .send()
+        
         try {
             let res = BookInfoRes.deserialize(response.getBodyDataModel())
             res
@@ -40,8 +48,6 @@ public struct ZlibRecommendBook <: Serializable<ZlibRecommendBook> {
             throw Exception('获取错误，错误信息${err.message}')
         }
     }
-
-
 
     public func serialize(): DataModel {
         return DataModelStruct()

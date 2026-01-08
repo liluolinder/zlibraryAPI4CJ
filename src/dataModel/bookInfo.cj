@@ -4,8 +4,6 @@ public struct BookInfoRes <: Serializable<BookInfoRes> {
     public var success: UInt8 = 0
     public var book: BookInfo = BookInfo()
 
-
-
     public func serialize(): DataModel {
         return DataModelStruct().add(field<UInt8>("success", success)).add(field<BookInfo>("book", book))
     }
@@ -21,16 +19,16 @@ public struct BookInfoRes <: Serializable<BookInfoRes> {
     }
 }
 
-public struct BookInfo <: Serializable<BookInfo> {
+public class BookInfo <: Serializable<BookInfo> {
     public var id: UInt64 = 0
     public var contentType: String = ''
     public var title: String = ''
-    public var author:?String = ''
+    public var author:?String = None
     public var volume: String = ''
     public var year: UInt64 = 0
-    public var edition: ?String = ''
-    public var publisher: ?String = ''
-    public var identifier: ?String = ''
+    public var edition: ?String = None
+    public var publisher: ?String = None
+    public var identifier: ?String = None
     public var language: String = ''
     public var pages: UInt64 = 0
     public var series: String = ''
@@ -53,6 +51,7 @@ public struct BookInfo <: Serializable<BookInfo> {
     public var dl: String = ''
     public var readOnlineUrl: String = ''
     public var isUserSavedBook: Bool = false
+    public var dataSaved:?String = None
     public var readOnlineAvailable: Bool = false
 
 
@@ -90,6 +89,7 @@ public struct BookInfo <: Serializable<BookInfo> {
             .add(field<String>("dl", dl))
             .add(field<String>("readOnlineUrl", readOnlineUrl))
             .add(field<Bool>("_isUserSavedBook", isUserSavedBook))
+            .add(field<?String>('date_saved', dataSaved))
             .add(field<Bool>("readOnlineAvailable", readOnlineAvailable))
     }
     public static func deserialize(dm: DataModel): BookInfo {
@@ -129,6 +129,7 @@ public struct BookInfo <: Serializable<BookInfo> {
         result.dl = String.deserialize(dms.get("dl"))
         result.readOnlineUrl = String.deserialize(dms.get("readOnlineUrl"))
         result.isUserSavedBook = Bool.deserialize(dms.get("_isUserSavedBook"))
+        result.dataSaved = Option<String>.deserialize(dms.get("date_saved"))
         result.readOnlineAvailable = Bool.deserialize(dms.get("readOnlineAvailable"))
 
         return result
