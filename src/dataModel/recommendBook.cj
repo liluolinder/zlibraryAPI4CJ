@@ -28,19 +28,18 @@ public class ZlibRecommendBook <: Serializable<ZlibRecommendBook> {
     public var cover: String = ''
     public var hash: String = ''
 
-    public func getBookInfo(cookie!:?String = None): BookInfoRes {
-        let response = 
-        httpClient.destory()
-        .setDefaultHeader()
-        .setIntercept(Intercept(requestL: {
-            http => 
-                if(cookie.isSome()){
-                    http.httpHeader.set(key:"cookie", value:cookie.getOrThrow())
+    public func getBookInfo(cookie!: ?String = None): BookInfoRes {
+        let response = httpClient
+            .destory()
+            .setDefaultHeader()
+            .setIntercept(Intercept(requestL: {
+                http => if (cookie.isSome()) {
+                    http.httpHeader.set(key: "cookie", value: cookie.getOrThrow())
                 }
             }))
-        .setUrl("${zlibEAPI}/book/${id}/${hash}")
-        .send()
-        
+            .setUrl("${zlibEAPI}/book/${id}/${hash}")
+            .send()
+
         try {
             let res = BookInfoRes.deserialize(response.getBodyDataModel())
             res

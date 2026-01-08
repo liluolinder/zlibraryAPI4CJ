@@ -8,8 +8,7 @@ import stdx.serialization.serialization.*
 import stdx.encoding.json.*
 
 public class ZlibClient {
-
-    public func loginIn(email!: String, password!: String):GetUserInfoOrLoginRes {
+    public func loginIn(email!: String, password!: String): GetUserInfoOrLoginRes {
         let body = Form()
         body.add("email", email)
         body.add("password", password)
@@ -28,8 +27,8 @@ public class ZlibClient {
         }
     }
 
-    public func loginIn(userID!:UInt64, userKey!:String):GetUserInfoOrLoginRes{
-        let tempUserInfo:ZlibUserInfo = ZlibUserInfo()
+    public func loginIn(userID!: UInt64, userKey!: String): GetUserInfoOrLoginRes {
+        let tempUserInfo: ZlibUserInfo = ZlibUserInfo()
         tempUserInfo.id = userID
         tempUserInfo.remixUserkey = userKey
         tempUserInfo.getPersonalInfo()

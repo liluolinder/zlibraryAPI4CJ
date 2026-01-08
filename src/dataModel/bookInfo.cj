@@ -23,7 +23,7 @@ public class BookInfo <: Serializable<BookInfo> {
     public var id: UInt64 = 0
     public var contentType: String = ''
     public var title: String = ''
-    public var author:?String = None
+    public var author: ?String = None
     public var volume: String = ''
     public var year: UInt64 = 0
     public var edition: ?String = None
@@ -50,11 +50,9 @@ public class BookInfo <: Serializable<BookInfo> {
     public var description: String = ''
     public var dl: String = ''
     public var readOnlineUrl: String = ''
-    public var isUserSavedBook: Bool = false
-    public var dataSaved:?String = None
+    public var isUserSavedBook: ?Bool = None
+    public var dataSaved: ?String = None
     public var readOnlineAvailable: Bool = false
-
-
 
     public func serialize(): DataModel {
         return DataModelStruct()
@@ -88,7 +86,7 @@ public class BookInfo <: Serializable<BookInfo> {
             .add(field<String>("description", description))
             .add(field<String>("dl", dl))
             .add(field<String>("readOnlineUrl", readOnlineUrl))
-            .add(field<Bool>("_isUserSavedBook", isUserSavedBook))
+            .add(field<?Bool>("_isUserSavedBook", isUserSavedBook))
             .add(field<?String>('date_saved', dataSaved))
             .add(field<Bool>("readOnlineAvailable", readOnlineAvailable))
     }
@@ -128,7 +126,7 @@ public class BookInfo <: Serializable<BookInfo> {
         result.description = String.deserialize(dms.get("description"))
         result.dl = String.deserialize(dms.get("dl"))
         result.readOnlineUrl = String.deserialize(dms.get("readOnlineUrl"))
-        result.isUserSavedBook = Bool.deserialize(dms.get("_isUserSavedBook"))
+        result.isUserSavedBook = Option<Bool>.deserialize(dms.get("_isUserSavedBook"))
         result.dataSaved = Option<String>.deserialize(dms.get("date_saved"))
         result.readOnlineAvailable = Bool.deserialize(dms.get("readOnlineAvailable"))
 
