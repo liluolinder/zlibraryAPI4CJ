@@ -54,6 +54,44 @@ public class BookInfo <: Serializable<BookInfo> {
     public var dataSaved: ?String = None
     public var readOnlineAvailable: Bool = false
 
+
+    public func saveBook(cookie!:String ):Bool{
+        let response = httpClient
+            .destory()
+            .setUrl("${zlibEAPI}/user/book/${id}/save")
+            .setMehod(RequestMethod.GET)
+            .setIntercept(Intercept(requestL: {
+                http =>  
+                    http.httpHeader.set(key: "cookie", value: cookie)
+            }))
+            .send()
+
+        if(response.getBodyJsonObject().get('success').getOrThrow().asInt().getValue() == 1){
+            true
+        }else{
+            false
+        }
+       
+    }
+
+    public func unSaveBook(cookie!:String ):Bool{
+        let response = httpClient
+            .destory()
+            .setUrl("${zlibEAPI}/user/book/${id}/unsave")
+            .setMehod(RequestMethod.GET)
+            .setIntercept(Intercept(requestL: {
+                http =>  
+                    http.httpHeader.set(key: "cookie", value: cookie)
+            }))
+            .send()
+
+          if(response.getBodyJsonObject().get('success').getOrThrow().asInt().getValue() == 1){
+            true
+        }else{
+            false
+        }
+    }
+
     public func serialize(): DataModel {
         return DataModelStruct()
             .add(field<UInt64>("id", id))
@@ -90,6 +128,7 @@ public class BookInfo <: Serializable<BookInfo> {
             .add(field<?String>('date_saved', dataSaved))
             .add(field<Bool>("readOnlineAvailable", readOnlineAvailable))
     }
+
     public static func deserialize(dm: DataModel): BookInfo {
         var dms = match (dm) {
             case data: DataModelStruct => data

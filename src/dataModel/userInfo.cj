@@ -79,8 +79,6 @@ public class ZlibUserInfo <: Serializable<ZlibUserInfo> {
             .setBody(param)
             .send()
 
-       // response.getBodyJsonString() |> println
-
         try {
             let res = GetUserSavedBookRes.deserialize(response.getBodyDataModel())
             res
