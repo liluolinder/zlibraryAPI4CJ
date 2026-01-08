@@ -1,18 +1,18 @@
 package zlibraryAPI4CJ.dataModel
 
-public struct BookInfoRes <: Serializable<BookInfoRes> {
+public struct GetBookInfoRes <: Serializable<GetBookInfoRes> {
     public var success: UInt8 = 0
     public var book: BookInfo = BookInfo()
 
     public func serialize(): DataModel {
         return DataModelStruct().add(field<UInt8>("success", success)).add(field<BookInfo>("book", book))
     }
-    public static func deserialize(dm: DataModel): BookInfoRes {
+    public static func deserialize(dm: DataModel): GetBookInfoRes {
         var dms = match (dm) {
             case data: DataModelStruct => data
             case _ => throw Exception("this data is not DataModelStruct")
         }
-        var result = BookInfoRes()
+        var result = GetBookInfoRes()
         result.success = UInt8.deserialize(dms.get("success"))
         result.book = BookInfo.deserialize(dms.get("book"))
         return result
@@ -54,45 +54,41 @@ public class BookInfo <: Serializable<BookInfo> {
     public var dataSaved: ?String = None
     public var readOnlineAvailable: Bool = false
 
-
-    public func saveBook(cookie!:String ):Bool{
+    public func saveBook(cookie!: String): Bool {
         let response = httpClient
             .destory()
             .setUrl("${zlibEAPI}/user/book/${id}/save")
             .setMehod(RequestMethod.GET)
             .setIntercept(Intercept(requestL: {
-                http =>  
-                    http.httpHeader.set(key: "cookie", value: cookie)
+                http => http.httpHeader.set(key: "cookie", value: cookie)
             }))
             .send()
 
-        if(response.getBodyJsonObject().get('success').getOrThrow().asInt().getValue() == 1){
+        if (response.getBodyJsonObject().get('success').getOrThrow().asInt().getValue() == 1) {
             true
-        }else{
+        } else {
             false
         }
-       
     }
 
-    public func unSaveBook(cookie!:String ):Bool{
+    public func unSaveBook(cookie!: String): Bool {
         let response = httpClient
             .destory()
             .setUrl("${zlibEAPI}/user/book/${id}/unsave")
             .setMehod(RequestMethod.GET)
             .setIntercept(Intercept(requestL: {
-                http =>  
-                    http.httpHeader.set(key: "cookie", value: cookie)
+                http => http.httpHeader.set(key: "cookie", value: cookie)
             }))
             .send()
 
-          if(response.getBodyJsonObject().get('success').getOrThrow().asInt().getValue() == 1){
+        if (response.getBodyJsonObject().get('success').getOrThrow().asInt().getValue() == 1) {
             true
-        }else{
+        } else {
             false
         }
     }
 
-    public func getSimilarBook():GetBookRes{
+    public func getSimilarBook(): GetBookRes {
         let response = httpClient
             .destory()
             .setUrl("${zlibEAPI}/book/${id}/${hash}/similar")

@@ -68,7 +68,7 @@ public class ZlibUserInfo <: Serializable<ZlibUserInfo> {
         }
     }
 
-    public func getSaved(page!: UInt64 = 1): GetUserSavedBookRes {
+    public func getSaved(page!: UInt64 = 1): GetBookWithInfoAndPaginationRes {
         let param = Form()
         param.add("page", "${page}")
         let response = httpClient
@@ -80,7 +80,7 @@ public class ZlibUserInfo <: Serializable<ZlibUserInfo> {
             .send()
 
         try {
-            let res = GetUserSavedBookRes.deserialize(response.getBodyDataModel())
+            let res = GetBookWithInfoAndPaginationRes.deserialize(response.getBodyDataModel())
             res
         } catch (err: Exception) {
             throw Exception('获取错误，错误信息${err.message}')

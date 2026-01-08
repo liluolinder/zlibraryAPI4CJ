@@ -5,9 +5,7 @@ public struct GetBookRes <: Serializable<GetBookRes> {
     public var books: Array<BookInfoBrief> = []
 
     public func serialize(): DataModel {
-        return DataModelStruct()
-            .add(field<UInt8>("success", success))
-            .add(field<Array<BookInfoBrief>>("books", books))
+        return DataModelStruct().add(field<UInt8>("success", success)).add(field<Array<BookInfoBrief>>("books", books))
     }
     public static func deserialize(dm: DataModel): GetBookRes {
         var dms = match (dm) {
@@ -28,7 +26,7 @@ public class BookInfoBrief <: Serializable<BookInfoBrief> {
     public var cover: String = ''
     public var hash: String = ''
 
-    public func getBookInfo(cookie!: ?String = None): BookInfoRes {
+    public func getBookInfo(cookie!: ?String = None): GetBookInfoRes {
         let response = httpClient
             .destory()
             .setDefaultHeader()
@@ -41,14 +39,14 @@ public class BookInfoBrief <: Serializable<BookInfoBrief> {
             .send()
 
         try {
-            let res = BookInfoRes.deserialize(response.getBodyDataModel())
+            let res = GetBookInfoRes.deserialize(response.getBodyDataModel())
             res
         } catch (err: Exception) {
             throw Exception('获取错误，错误信息${err.message}')
         }
     }
 
-    public func getSimilarBook():GetBookRes{
+    public func getSimilarBook(): GetBookRes {
         let response = httpClient
             .destory()
             .setUrl("${zlibEAPI}/book/${id}/${hash}/similar")
