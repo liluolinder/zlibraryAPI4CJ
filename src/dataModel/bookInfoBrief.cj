@@ -62,6 +62,25 @@ public class BookInfoBrief <: Serializable<BookInfoBrief> {
         }
     }
 
+    public func getDownloadInfo(cookie!: String) {
+        let response = httpClient
+            .destory()
+            .setDefaultHeader()
+            .setUrl("${zlibEAPI}/book/${id}/${hash}/file")
+            .setMehod(RequestMethod.GET)
+            .setIntercept(Intercept(requestL: {
+                http => http.httpHeader.set(key: "cookie", value: cookie)
+            }))
+            .send()
+
+        try {
+            let res = GetDownloadInfoRes.deserialize(response.getBodyDataModel())
+            res
+        } catch (err: Exception) {
+            throw Exception('获取错误，错误信息${err.message}')
+        }
+    }
+
     public func serialize(): DataModel {
         return DataModelStruct()
             .add(field<UInt64>("id", id))
