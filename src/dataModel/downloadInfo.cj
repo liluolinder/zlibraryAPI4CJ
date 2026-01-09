@@ -34,7 +34,7 @@ public struct DownloadInfo <: Serializable<DownloadInfo> {
 
     public func download(path!: Path, conflictMethod!: ConflictMethod = ConflictMethod.HARMONY) {
         let savePath = path.join(fileName)
-        let response = LinderHttp(url:RequestUrl.from(downloadLink.replace("%", ""))).send()
+        let response = LinderHttp(url: RequestUrl.from(downloadLink.replace("%", ""))).send()
         response.status |> println
         try {
             response.getBodyFile(filePath: savePath, conflictMethod: conflictMethod)
