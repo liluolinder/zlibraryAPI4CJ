@@ -37,6 +37,7 @@ public class ZlibClient {
     public func getRecommendBook(): GetBookRes {
         let response = httpClient.destory().setDefaultHeader().setUrl("${zlibEAPI}/book/most-popular").send()
         try {
+            //response.getBodyString() |> println
             let res = GetBookRes.deserialize(response.getBodyDataModel())
             res
         } catch (err: Exception) {
