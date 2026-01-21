@@ -55,8 +55,7 @@ public struct DownloadInfo <: Serializable<DownloadInfo> {
                     totalSize: Int64 => '文件总大小为${totalSize}' |> println
                 },
                 onReadProgressUpdateL: {
-                    singleReadSize: Int64, hasReadSize: Int64, totalSize: Int64 => '本次读取文件大小为${singleReadSize}, 已经读取了${hasReadSize}, 总大小为${totalSize}' |>
-                        println
+                    singleReadSize: Int64, hasReadSize: Int64, totalSize: Int64 => '总进度${Float64(hasReadSize)/Float64(totalSize)*100.0}%，本次读取文件大小为${singleReadSize}, 已经读取了${hasReadSize}, 总大小为${totalSize}' |> println
                 },
                 onReadEndL: {
                     path: ?Path => '保存完成,保存地址为${path}' |> println
