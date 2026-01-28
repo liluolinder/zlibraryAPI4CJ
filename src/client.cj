@@ -4,8 +4,8 @@ import linderHttp.*
 import linderHttp.commons.*
 import zlibraryAPI4CJ.common.*
 import zlibraryAPI4CJ.dataModel.*
-import stdx_serialization.*
-import stdx_encode_json.*
+import stdx.serialization.serialization.*
+import stdx.encoding.json.*
 
 public class ZlibClient {
     public func login(email!: String, password!: String): GetUserInfoOrLoginRes {
