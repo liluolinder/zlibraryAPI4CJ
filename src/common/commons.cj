@@ -11,8 +11,8 @@ public func changeUrl(url:String){
     zlibEAPI = "${zlibBaseUrl}/eapi"
 }
 
-public func canAccessZlib():Bool{
-    var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute,autoRedirect:false)
+public func canAccessZlib(autoRedirect!:Bool = false):Bool{
+    var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute,autoRedirect:autoRedirect)
 
     let res =  httpClient.setUrl(zlibBaseUrl).send()
     if(res.status!=200 || res.location.isSome()){
