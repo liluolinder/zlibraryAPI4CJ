@@ -4,11 +4,12 @@ import linderHttp.*
 import linderHttp.commons.*
 import zlibraryAPI4CJ.common.*
 import zlibraryAPI4CJ.dataModel.*
-import stdx.serialization.serialization.*
-import stdx.encoding.json.*
+import stdx_serialization.*
+import stdx_encode_json.*
 
 public class ZlibClient {
     public func login(email!: String, password!: String): GetUserInfoOrLoginRes {
+        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let body = Form()
         body.add("email", email)
         body.add("password", password)
@@ -35,6 +36,7 @@ public class ZlibClient {
     }
 
     public func getRecommendBook(): GetBookRes {
+        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient.destory().setDefaultHeader().setUrl("${zlibEAPI}/book/most-popular").send()
         try {
             //response.getBodyString() |> println
@@ -58,7 +60,7 @@ public class ZlibClient {
         if (yearTo.isSome()) {
             body.add('yearTo', "${yearTo}")
         }
-
+        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient
             .destory()
             .setDefaultHeader()

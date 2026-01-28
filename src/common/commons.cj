@@ -1,8 +1,24 @@
 package zlibraryAPI4CJ.common
 
 import linderHttp.*
-import linderHttp.utils.*
 
-public var zlibBaseUrl: String = "https://zh.834101.ru"
+
+public var zlibBaseUrl: String = "https://zh.zlibraryd.ru"
 public var zlibEAPI: String = "${zlibBaseUrl}/eapi"
-public var httpClient: LinderHttp = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
+
+public func changeUrl(url:String){
+    zlibBaseUrl = url
+    zlibEAPI = "${zlibBaseUrl}/eapi"
+}
+
+public func canAccessZlib():Bool{
+    var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute,autoRedirect:false)
+
+    let res =  httpClient.setUrl(zlibBaseUrl).send()
+    if(res.status!=200 || res.location.isSome()){
+        false
+    }else{
+        true
+    }
+}
+
