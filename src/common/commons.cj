@@ -12,13 +12,16 @@ public func changeUrl(url:String){
 }
 
 public func canAccessZlib(autoRedirect!:Bool = false):Bool{
-    var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute,autoRedirect:autoRedirect)
+    var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute,autoRedirect:false)
 
     let res =  httpClient.setUrl(zlibBaseUrl).send()
-    if(res.status!=200 || res.location.isSome()){
-        false
-    }else{
+
+    if(autoRedirect && let Some(location)<-res.location){
+        changeUrl(location[0])
         true
+    }else if(res.status != 302 ){
+        true
+    }else{
+        false
     }
 }
-
