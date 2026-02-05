@@ -38,34 +38,24 @@ public class BookInfoBrief <: Serializable<BookInfoBrief> {
             }))
             .setUrl("${zlibEAPI}/book/${id}/${hash}")
             .send()
-
-        try {
-            let res = GetBookInfoRes.deserialize(response.getBodyDataModel())
-            res
-        } catch (err: Exception) {
-            throw Exception('获取错误，错误信息${err.message}')
-        }
+        let res = GetBookInfoRes.deserialize(response.getBodyDataModel())
+        res
     }
 
     public func getSimilarBook(): GetBookRes {
-        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
+       var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute, intercept:commonIntercept)
         let response = httpClient
             .destory()
             .setDefaultHeader()
             .setUrl("${zlibEAPI}/book/${id}/${hash}/similar")
             .setMehod(RequestMethod.GET)
             .send()
-
-        try {
-            let res = GetBookRes.deserialize(response.getBodyDataModel())
-            res
-        } catch (err: Exception) {
-            throw Exception('获取错误，错误信息${err.message}')
-        }
+        let res = GetBookRes.deserialize(response.getBodyDataModel())
+        res
     }
 
     public func getDownloadInfo(cookie!: String) {
-        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
+       var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute, intercept:commonIntercept)
         let response = httpClient
             .destory()
             .setDefaultHeader()
@@ -75,13 +65,8 @@ public class BookInfoBrief <: Serializable<BookInfoBrief> {
                 http => http.httpHeader.set(key: "cookie", value: cookie)
             }))
             .send()
-
-        try {
-            let res = GetDownloadInfoRes.deserialize(response.getBodyDataModel())
-            res
-        } catch (err: Exception) {
-            throw Exception('获取错误，错误信息${err.message}')
-        }
+        let res = GetDownloadInfoRes.deserialize(response.getBodyDataModel())
+        res
     }
 
     public func serialize(): DataModel {

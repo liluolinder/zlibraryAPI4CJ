@@ -53,7 +53,7 @@ public class ZlibUserInfo <: Serializable<ZlibUserInfo> {
     }
 
     public func getPersonalInfo(): GetUserInfoOrLoginRes {
-        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
+       var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute, intercept:commonIntercept)
         let response = httpClient
             .destory()
             .setHeader(header)
@@ -61,18 +61,14 @@ public class ZlibUserInfo <: Serializable<ZlibUserInfo> {
             .setMehod(RequestMethod.GET)
             .send()
 
-        try {
-            let res = GetUserInfoOrLoginRes.deserialize(response.getBodyDataModel())
-            res
-        } catch (err: Exception) {
-            throw Exception('获取错误，错误信息${err.message}')
-        }
+        let res = GetUserInfoOrLoginRes.deserialize(response.getBodyDataModel())
+        res
     }
 
     public func getSaved(page!: UInt64 = 1): GetBookWithInfoAndPaginationRes {
         let param = Form()
         param.add("page", "${page}")
-        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
+       var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute, intercept:commonIntercept)
         let response = httpClient
             .destory()
             .setHeader(header)
@@ -80,17 +76,12 @@ public class ZlibUserInfo <: Serializable<ZlibUserInfo> {
             .setMehod(RequestMethod.GET)
             .setBody(param)
             .send()
-
-        try {
-            let res = GetBookWithInfoAndPaginationRes.deserialize(response.getBodyDataModel())
-            res
-        } catch (err: Exception) {
-            throw Exception('获取错误，错误信息${err.message}')
-        }
+        let res = GetBookWithInfoAndPaginationRes.deserialize(response.getBodyDataModel())
+        res
     }
 
     public func getRecommendBook(): GetBookRes {
-        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
+        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute, intercept:commonIntercept)
         let response = httpClient
             .destory()
             .setHeader(header)
@@ -98,12 +89,8 @@ public class ZlibUserInfo <: Serializable<ZlibUserInfo> {
             .setMehod(RequestMethod.GET)
             .send()
 
-        try {
-            let res = GetBookRes.deserialize(response.getBodyDataModel())
-            res
-        } catch (err: Exception) {
-            throw Exception('获取错误，错误信息${err.message}')
-        }
+        let res = GetBookRes.deserialize(response.getBodyDataModel())
+        res
     }
 
     public func serialize(): DataModel {
