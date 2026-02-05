@@ -9,7 +9,7 @@ import stdx.encoding.json.*
 
 public class ZlibClient {
     public func login(email!: String, password!: String): GetUserInfoOrLoginRes {
-        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
+        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute, intercept:commonIntercept)
         let body = Form()
         body.add("email", email)
         body.add("password", password)
@@ -20,12 +20,8 @@ public class ZlibClient {
             .setMehod(RequestMethod.POST)
             .setBody(body)
             .send()
-        try {
-            let res = GetUserInfoOrLoginRes.deserialize(response.getBodyDataModel())
-            res
-        } catch (err: Exception) {
-            throw Exception('获取错误，错误信息${err.message}')
-        }
+        let res = GetUserInfoOrLoginRes.deserialize(response.getBodyDataModel())
+        res
     }
 
     public func login(userID!: UInt64, userKey!: String): GetUserInfoOrLoginRes {
@@ -36,15 +32,10 @@ public class ZlibClient {
     }
 
     public func getRecommendBook(): GetBookRes {
-        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
+        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute, intercept:commonIntercept)
         let response = httpClient.destory().setDefaultHeader().setUrl("${zlibEAPI}/book/most-popular").send()
-        try {
-            //response.getBodyString() |> println
-            let res = GetBookRes.deserialize(response.getBodyDataModel())
-            res
-        } catch (err: Exception) {
-            throw Exception('获取错误，错误信息${err.message}')
-        }
+        let res = GetBookRes.deserialize(response.getBodyDataModel())
+        res
     }
 
     public func search(message!: String, yearFrom!: ?UInt16 = None, yearTo!: ?UInt16 = None, page!: UInt16 = 1,
@@ -60,7 +51,7 @@ public class ZlibClient {
         if (yearTo.isSome()) {
             body.add('yearTo', "${yearTo}")
         }
-        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
+        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute, intercept:commonIntercept)
         let response = httpClient
             .destory()
             .setDefaultHeader()
@@ -69,11 +60,7 @@ public class ZlibClient {
             .setBody(body)
             .send()
 
-        try {
-            let res = GetBookWithInfoAndPaginationRes.deserialize(response.getBodyDataModel())
-            res
-        } catch (err: Exception) {
-            throw Exception('获取错误，错误信息${err.message}')
-        }
+        let res = GetBookWithInfoAndPaginationRes.deserialize(response.getBodyDataModel())
+        res
     }
 }
