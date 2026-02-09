@@ -5,14 +5,6 @@ import linderHttp.*
 public var zlibBaseUrl: String = "https://zh.znanjing.ru"
 public var zlibEAPI: String = "${zlibBaseUrl}/eapi"
 
-public var commonIntercept = Intercept(
-    requestErrorL: {
-                err  => throw  Exception('请求发生错误:${err.message}')
-            }
-            ,
-    responseErrorL: {
-                err => throw Exception('响应体发送错误:${err.message}')
-            })
 
 public func changeUrl(url: String) {
     zlibBaseUrl = url
@@ -20,7 +12,7 @@ public func changeUrl(url: String) {
 }
 
 public func canAccessZlib(autoRedirect!: Bool = false): Bool {
-     var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute, intercept:commonIntercept)
+     var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
 
     let res = httpClient.setUrl(zlibBaseUrl).send()
 

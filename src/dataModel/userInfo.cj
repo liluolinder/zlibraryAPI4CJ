@@ -53,7 +53,7 @@ public class ZlibUserInfo <: Serializable<ZlibUserInfo> {
     }
 
     public func getPersonalInfo(): GetUserInfoOrLoginRes {
-       var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute, intercept:commonIntercept)
+       var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient
             .destory()
             .setHeader(header)
@@ -68,7 +68,7 @@ public class ZlibUserInfo <: Serializable<ZlibUserInfo> {
     public func getSaved(page!: UInt64 = 1): GetBookWithInfoAndPaginationRes {
         let param = Form()
         param.add("page", "${page}")
-       var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute, intercept:commonIntercept)
+       var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient
             .destory()
             .setHeader(header)
@@ -81,7 +81,7 @@ public class ZlibUserInfo <: Serializable<ZlibUserInfo> {
     }
 
     public func getRecommendBook(): GetBookRes {
-        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute, intercept:commonIntercept)
+        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient
             .destory()
             .setHeader(header)

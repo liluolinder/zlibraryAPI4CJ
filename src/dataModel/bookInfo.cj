@@ -55,7 +55,7 @@ public class BookInfo <: Serializable<BookInfo> {
     public var readOnlineAvailable: Bool = false
 
     public func saveBook(cookie!: String): Bool {
-        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute, intercept:commonIntercept)
+        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient
             .destory()
             .setDefaultHeader()
@@ -74,7 +74,7 @@ public class BookInfo <: Serializable<BookInfo> {
     }
 
     public func unSaveBook(cookie!: String): Bool {
-       var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute, intercept:commonIntercept)
+       var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient
             .setUrl("${zlibEAPI}/user/book/${id}/unsave")
             .setMehod(RequestMethod.GET)
@@ -91,7 +91,7 @@ public class BookInfo <: Serializable<BookInfo> {
     }
 
     public func getSimilarBook(): GetBookRes {
-        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute, intercept:commonIntercept)
+        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient
             .setUrl("${zlibEAPI}/book/${id}/${hash}/similar")
             .setMehod(RequestMethod.GET)
@@ -101,7 +101,7 @@ public class BookInfo <: Serializable<BookInfo> {
     }
 
     public func getDownloadInfo(cookie!: String) {
-        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute, intercept:commonIntercept)
+        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient
             .setUrl("${zlibEAPI}/book/${id}/${hash}/file")
             .setMehod(RequestMethod.GET)

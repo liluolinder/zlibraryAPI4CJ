@@ -43,7 +43,7 @@ public class BookInfoBrief <: Serializable<BookInfoBrief> {
     }
 
     public func getSimilarBook(): GetBookRes {
-       var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute, intercept:commonIntercept)
+       var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient
             .destory()
             .setDefaultHeader()
@@ -55,7 +55,7 @@ public class BookInfoBrief <: Serializable<BookInfoBrief> {
     }
 
     public func getDownloadInfo(cookie!: String) {
-       var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute, intercept:commonIntercept)
+       var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient
             .destory()
             .setDefaultHeader()
