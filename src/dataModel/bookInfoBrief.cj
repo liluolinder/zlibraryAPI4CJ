@@ -2,10 +2,11 @@ package zlibraryAPI4CJ.dataModel
 
 public struct GetBookRes <: Serializable<GetBookRes> {
     public var success: UInt8 = 0
-    public var books: Array<BookInfoBrief> = []
+    public var books: ?Array<BookInfoBrief>= []
+    public var errorInfo: ?String = ''
 
     public func serialize(): DataModel {
-        return DataModelStruct().add(field<UInt8>("success", success)).add(field<Array<BookInfoBrief>>("books", books))
+        return DataModelStruct().add(field<UInt8>("success", success)).add(field<Option<Array<BookInfoBrief>>>("books", books))
     }
     public static func deserialize(dm: DataModel): GetBookRes {
         var dms = match (dm) {
@@ -14,7 +15,8 @@ public struct GetBookRes <: Serializable<GetBookRes> {
         }
         var result = GetBookRes()
         result.success = UInt8.deserialize(dms.get("success"))
-        result.books = Array<BookInfoBrief>.deserialize(dms.get("books"))
+        result.books = Option<Array<BookInfoBrief>>.deserialize(dms.get("books"))
+        result.errorInfo = Option<String>.deserialize(dms.get("error"))
         return result
     }
 }
@@ -29,7 +31,7 @@ public class BookInfoBrief <: Serializable<BookInfoBrief> {
     public func getBookInfo(cookie!: ?String = None): GetBookInfoRes {
         var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient
-            .destory()
+            .destroy()
             .setDefaultHeader()
             .setIntercept(Intercept(requestL: {
                 http => if (cookie.isSome()) {
@@ -50,10 +52,10 @@ public class BookInfoBrief <: Serializable<BookInfoBrief> {
     public func getSimilarBook(): GetBookRes {
         var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient
-            .destory()
+            .destroy()
             .setDefaultHeader()
             .setUrl("${zlibEAPI}/book/${id}/${hash}/similar")
-            .setMehod(RequestMethod.GET)
+            .setMethod(RequestMethod.GET)
             .send()
 
         try {
@@ -67,16 +69,17 @@ public class BookInfoBrief <: Serializable<BookInfoBrief> {
     public func getDownloadInfo(cookie!: String) {
         var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient
-            .destory()
+            .destroy()
             .setDefaultHeader()
             .setUrl("${zlibEAPI}/book/${id}/${hash}/file")
-            .setMehod(RequestMethod.GET)
+            .setMethod(RequestMethod.GET)
             .setIntercept(Intercept(requestL: {
                 http => http.httpHeader.set(key: "cookie", value: cookie)
             }))
             .send()
 
         try {
+            
             let res = GetDownloadInfoRes.deserialize(response.getBodyDataModel())
             res
         } catch (err: Exception) {

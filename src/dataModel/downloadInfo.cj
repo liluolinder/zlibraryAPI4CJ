@@ -2,10 +2,11 @@ package zlibraryAPI4CJ.dataModel
 
 public struct GetDownloadInfoRes <: Serializable<GetDownloadInfoRes> {
     public var success: UInt8 = 0
-    public var file: DownloadInfo = DownloadInfo()
+    public var file: ?DownloadInfo = DownloadInfo()
+    public var errorInfo: ?String = ''
 
     public func serialize(): DataModel {
-        return DataModelStruct().add(field<UInt8>("success", success)).add(field<DownloadInfo>("file", file))
+        return DataModelStruct().add(field<UInt8>("success", success)).add(field<Option<DownloadInfo>>("file", file))
     }
     public static func deserialize(dm: DataModel): GetDownloadInfoRes {
         var dms = match (dm) {
@@ -14,7 +15,8 @@ public struct GetDownloadInfoRes <: Serializable<GetDownloadInfoRes> {
         }
         var result = GetDownloadInfoRes()
         result.success = UInt8.deserialize(dms.get("success"))
-        result.file = DownloadInfo.deserialize(dms.get("file"))
+        result.file = Option<DownloadInfo>.deserialize(dms.get("file"))
+        result.errorInfo = Option<String>.deserialize(dms.get("error"))
         return result
     }
 }
@@ -32,7 +34,7 @@ public struct DownloadInfo <: Serializable<DownloadInfo> {
         }
     }
 
-    public func download(path!: Path, conflictMethod!: ConflictMethod = ConflictMethod.HARMONY) {
+    public func download(path!: Path, conflictMethod!: ConflictMethod = ConflictMethod.Harmony) {
         let savePath = path.join(fileName)
         let response = LinderHttp(
             url: RequestUrl.from(downloadLink.replace("%", "")),

@@ -2,10 +2,12 @@ package zlibraryAPI4CJ.dataModel
 
 public struct GetBookInfoRes <: Serializable<GetBookInfoRes> {
     public var success: UInt8 = 0
-    public var book: BookInfo = BookInfo()
+    public var book: ?BookInfo = BookInfo()
+    public var errorInfo: ?String = ''
+
 
     public func serialize(): DataModel {
-        return DataModelStruct().add(field<UInt8>("success", success)).add(field<BookInfo>("book", book))
+        return DataModelStruct().add(field<UInt8>("success", success)).add(field<Option<BookInfo>>("book", book))
     }
     public static func deserialize(dm: DataModel): GetBookInfoRes {
         var dms = match (dm) {
@@ -14,7 +16,9 @@ public struct GetBookInfoRes <: Serializable<GetBookInfoRes> {
         }
         var result = GetBookInfoRes()
         result.success = UInt8.deserialize(dms.get("success"))
-        result.book = BookInfo.deserialize(dms.get("book"))
+        result.book = Option<BookInfo>.deserialize(dms.get("book"))
+        result.errorInfo = Option<String>.deserialize(dms.get("error"))
+
         return result
     }
 }
@@ -57,10 +61,10 @@ public class BookInfo <: Serializable<BookInfo> {
     public func saveBook(cookie!: String): Bool {
         var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient
-            .destory()
+            .destroy()
             .setDefaultHeader()
             .setUrl("${zlibEAPI}/user/book/${id}/save")
-            .setMehod(RequestMethod.GET)
+            .setMethod(RequestMethod.GET)
             .setIntercept(Intercept(requestL: {
                 http => http.httpHeader.set(key: "cookie", value: cookie)
             }))
@@ -76,9 +80,9 @@ public class BookInfo <: Serializable<BookInfo> {
     public func unSaveBook(cookie!: String): Bool {
         var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient
-            .destory()
+            .destroy()
             .setUrl("${zlibEAPI}/user/book/${id}/unsave")
-            .setMehod(RequestMethod.GET)
+            .setMethod(RequestMethod.GET)
             .setIntercept(Intercept(requestL: {
                 http => http.httpHeader.set(key: "cookie", value: cookie)
             }))
@@ -94,10 +98,10 @@ public class BookInfo <: Serializable<BookInfo> {
     public func getSimilarBook(): GetBookRes {
         var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient
-            .destory()
+            .destroy()
             .setDefaultHeader()
             .setUrl("${zlibEAPI}/book/${id}/${hash}/similar")
-            .setMehod(RequestMethod.GET)
+            .setMethod(RequestMethod.GET)
             .send()
 
         try {
@@ -108,13 +112,13 @@ public class BookInfo <: Serializable<BookInfo> {
         }
     }
 
-    public func getDownloadInfo(cookie!: String) {
+    public func getDownloadInfo(cookie!: String):GetDownloadInfoRes {
         var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient
-            .destory()
+            .destroy()
             .setDefaultHeader()
             .setUrl("${zlibEAPI}/book/${id}/${hash}/file")
-            .setMehod(RequestMethod.GET)
+            .setMethod(RequestMethod.GET)
             .setIntercept(Intercept(requestL: {
                 http => http.httpHeader.set(key: "cookie", value: cookie)
             }))

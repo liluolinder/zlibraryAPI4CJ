@@ -4,8 +4,7 @@ import linderHttp.*
 import linderHttp.commons.*
 import zlibraryAPI4CJ.common.*
 import zlibraryAPI4CJ.dataModel.*
-import stdx.serialization.serialization.*
-import stdx.encoding.json.*
+
 
 public class ZlibClient {
     public func login(email!: String, password!: String): GetUserInfoOrLoginRes {
@@ -14,10 +13,9 @@ public class ZlibClient {
         body.add("email", email)
         body.add("password", password)
         let response = httpClient
-            .destory()
             .setDefaultHeader()
             .setUrl("${zlibEAPI}/user/login")
-            .setMehod(RequestMethod.POST)
+            .setMethod(RequestMethod.POST)
             .setBody(body)
             .send()
         let res = GetUserInfoOrLoginRes.deserialize(response.getBodyDataModel())
@@ -33,7 +31,7 @@ public class ZlibClient {
 
     public func getRecommendBook(): GetBookRes {
         var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
-        let response = httpClient.destory().setDefaultHeader().setUrl("${zlibEAPI}/book/most-popular").send()
+        let response = httpClient.setDefaultHeader().setUrl("${zlibEAPI}/book/most-popular").send()
         let res = GetBookRes.deserialize(response.getBodyDataModel())
         res
     }
@@ -53,9 +51,8 @@ public class ZlibClient {
         }
         var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient
-            .destory()
             .setDefaultHeader()
-            .setMehod(RequestMethod.POST)
+            .setMethod(RequestMethod.POST)
             .setUrl("${zlibEAPI}/book/search")
             .setBody(body)
             .send()

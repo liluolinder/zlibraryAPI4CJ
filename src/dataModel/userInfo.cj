@@ -55,10 +55,10 @@ public class ZlibUserInfo <: Serializable<ZlibUserInfo> {
     public func getPersonalInfo(): GetUserInfoOrLoginRes {
         var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient
-            .destory()
+            .destroy()
             .setHeader(header)
             .setUrl("${zlibEAPI}/user/profile")
-            .setMehod(RequestMethod.GET)
+            .setMethod(RequestMethod.GET)
             .send()
 
         try {
@@ -74,10 +74,10 @@ public class ZlibUserInfo <: Serializable<ZlibUserInfo> {
         param.add("page", "${page}")
         var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient
-            .destory()
+            .destroy()
             .setHeader(header)
             .setUrl("${zlibEAPI}/user/book/saved")
-            .setMehod(RequestMethod.GET)
+            .setMethod(RequestMethod.GET)
             .setBody(param)
             .send()
 
@@ -92,10 +92,10 @@ public class ZlibUserInfo <: Serializable<ZlibUserInfo> {
     public func getRecommendBook(): GetBookRes {
         var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient
-            .destory()
+            .destroy()
             .setHeader(header)
             .setUrl("${zlibEAPI}/user/book/recommended")
-            .setMehod(RequestMethod.GET)
+            .setMethod(RequestMethod.GET)
             .send()
 
         try {
