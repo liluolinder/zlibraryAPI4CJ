@@ -2,11 +2,13 @@ package zlibraryAPI4CJ.dataModel
 
 public struct GetBookRes <: Serializable<GetBookRes> {
     public var success: UInt8 = 0
-    public var books: ?Array<BookInfoBrief>= []
+    public var books: ?Array<BookInfoBrief> = []
     public var errorInfo: ?String = ''
 
     public func serialize(): DataModel {
-        return DataModelStruct().add(field<UInt8>("success", success)).add(field<Option<Array<BookInfoBrief>>>("books", books))
+        return DataModelStruct()
+            .add(field<UInt8>("success", success))
+            .add(field<Option<Array<BookInfoBrief>>>("books", books))
     }
     public static func deserialize(dm: DataModel): GetBookRes {
         var dms = match (dm) {
@@ -28,25 +30,15 @@ public class BookInfoBrief <: Serializable<BookInfoBrief> {
     public var cover: String = ''
     public var hash: String = ''
 
-    public func getBookInfo(cookie!: ?String = None): GetBookInfoRes {
+    public func getBookInfo(cookie!: String = ''): GetBookInfoRes {
         var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient
-            .destroy()
-            .setDefaultHeader()
-            .setIntercept(Intercept(requestL: {
-                http => if (cookie.isSome()) {
-                    http.httpHeader.set(key: "cookie", value: cookie.getOrThrow())
-                }
-            }))
+            .setHeader(LinderHttpHeader().set(key: "cookie", value: cookie))
             .setUrl("${zlibEAPI}/book/${id}/${hash}")
             .send()
 
-        try {
-            let res = GetBookInfoRes.deserialize(response.getBodyDataModel())
-            res
-        } catch (err: Exception) {
-            throw Exception('获取错误，错误信息${err.message}')
-        }
+        let res = GetBookInfoRes.deserialize(response.getBodyDataModel())
+        res
     }
 
     public func getSimilarBook(): GetBookRes {
@@ -62,7 +54,7 @@ public class BookInfoBrief <: Serializable<BookInfoBrief> {
             let res = GetBookRes.deserialize(response.getBodyDataModel())
             res
         } catch (err: Exception) {
-            throw Exception('获取错误，错误信息${err.message}')
+            throw Exception('获取错误，错误信息${err.toString()}')
         }
     }
 
@@ -73,18 +65,11 @@ public class BookInfoBrief <: Serializable<BookInfoBrief> {
             .setDefaultHeader()
             .setUrl("${zlibEAPI}/book/${id}/${hash}/file")
             .setMethod(RequestMethod.GET)
-            .setIntercept(Intercept(requestL: {
-                http => http.httpHeader.set(key: "cookie", value: cookie)
-            }))
+            .setHeader(LinderHttpHeader().set(key: "cookie", value: cookie))
             .send()
 
-        try {
-            
-            let res = GetDownloadInfoRes.deserialize(response.getBodyDataModel())
-            res
-        } catch (err: Exception) {
-            throw Exception('获取错误，错误信息${err.message}')
-        }
+        let res = GetDownloadInfoRes.deserialize(response.getBodyDataModel())
+        res
     }
 
     public func serialize(): DataModel {

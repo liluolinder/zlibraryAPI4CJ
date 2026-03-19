@@ -31,8 +31,8 @@ public class ZlibUserInfo <: Serializable<ZlibUserInfo> {
     public var email: String = ""
     public var name: String = ""
     public var kindleEmail: String = ""
-    public var remixUserkey: String = ""
-    public var todyDownloadNum: UInt64 = 0
+    public var remixUserKey: String = ""
+    public var todayDownloadNum: UInt64 = 0
     public var downloadLimit: UInt64 = 0
     // "donations_active": null,
     // "donations_expire": null,
@@ -41,7 +41,7 @@ public class ZlibUserInfo <: Serializable<ZlibUserInfo> {
 
     public prop cookie: String {
         get() {
-            'siteLanguage=zh; remix_userkey=${remixUserkey}; remix_userid=${id}'
+            'siteLanguage=zh; remix_userkey=${remixUserKey}; remix_userid=${id}'
         }
     }
 
@@ -61,12 +61,8 @@ public class ZlibUserInfo <: Serializable<ZlibUserInfo> {
             .setMethod(RequestMethod.GET)
             .send()
 
-        try {
-            let res = GetUserInfoOrLoginRes.deserialize(response.getBodyDataModel())
-            res
-        } catch (err: Exception) {
-            throw Exception('获取错误，错误信息${err.message}')
-        }
+        let res = GetUserInfoOrLoginRes.deserialize(response.getBodyDataModel())
+        res
     }
 
     public func getSaved(page!: UInt64 = 1): GetBookWithInfoAndPaginationRes {
@@ -81,12 +77,8 @@ public class ZlibUserInfo <: Serializable<ZlibUserInfo> {
             .setBody(param)
             .send()
 
-        try {
-            let res = GetBookWithInfoAndPaginationRes.deserialize(response.getBodyDataModel())
-            res
-        } catch (err: Exception) {
-            throw Exception('获取错误，错误信息${err.message}')
-        }
+        let res = GetBookWithInfoAndPaginationRes.deserialize(response.getBodyDataModel())
+        res
     }
 
     public func getRecommendBook(): GetBookRes {
@@ -98,12 +90,8 @@ public class ZlibUserInfo <: Serializable<ZlibUserInfo> {
             .setMethod(RequestMethod.GET)
             .send()
 
-        try {
-            let res = GetBookRes.deserialize(response.getBodyDataModel())
-            res
-        } catch (err: Exception) {
-            throw Exception('获取错误，错误信息${err.message}')
-        }
+        let res = GetBookRes.deserialize(response.getBodyDataModel())
+        res
     }
 
     public func serialize(): DataModel {
@@ -112,8 +100,8 @@ public class ZlibUserInfo <: Serializable<ZlibUserInfo> {
             .add(field<String>("email", email))
             .add(field<String>("name", name))
             .add(field<String>("kindle_email", kindleEmail))
-            .add(field<String>("remix_userkey", remixUserkey))
-            .add(field<UInt64>("downloads_today", todyDownloadNum))
+            .add(field<String>("remix_userkey", remixUserKey))
+            .add(field<UInt64>("downloads_today", todayDownloadNum))
             .add(field<UInt64>("downloads_limit", downloadLimit))
     }
     public static func deserialize(dm: DataModel): ZlibUserInfo {
@@ -127,8 +115,8 @@ public class ZlibUserInfo <: Serializable<ZlibUserInfo> {
         result.name = String.deserialize(dms.get("name"))
 
         result.kindleEmail = String.deserialize(dms.get("kindle_email"))
-        result.remixUserkey = String.deserialize(dms.get("remix_userkey"))
-        result.todyDownloadNum = UInt64.deserialize(dms.get("downloads_today"))
+        result.remixUserKey = String.deserialize(dms.get("remix_userkey"))
+        result.todayDownloadNum = UInt64.deserialize(dms.get("downloads_today"))
         result.downloadLimit = UInt64.deserialize(dms.get("downloads_limit"))
         return result
     }

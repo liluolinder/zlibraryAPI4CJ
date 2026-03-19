@@ -5,7 +5,6 @@ public struct GetBookInfoRes <: Serializable<GetBookInfoRes> {
     public var book: ?BookInfo = BookInfo()
     public var errorInfo: ?String = ''
 
-
     public func serialize(): DataModel {
         return DataModelStruct().add(field<UInt8>("success", success)).add(field<Option<BookInfo>>("book", book))
     }
@@ -65,9 +64,7 @@ public class BookInfo <: Serializable<BookInfo> {
             .setDefaultHeader()
             .setUrl("${zlibEAPI}/user/book/${id}/save")
             .setMethod(RequestMethod.GET)
-            .setIntercept(Intercept(requestL: {
-                http => http.httpHeader.set(key: "cookie", value: cookie)
-            }))
+            .setHeader(LinderHttpHeader().set(key: "cookie", value: cookie))
             .send()
 
         if (response.getBodyJsonObject().get('success').getOrThrow().asInt().getValue() == 1) {
@@ -83,9 +80,7 @@ public class BookInfo <: Serializable<BookInfo> {
             .destroy()
             .setUrl("${zlibEAPI}/user/book/${id}/unsave")
             .setMethod(RequestMethod.GET)
-            .setIntercept(Intercept(requestL: {
-                http => http.httpHeader.set(key: "cookie", value: cookie)
-            }))
+            .setHeader(LinderHttpHeader().set(key: "cookie", value: cookie))
             .send()
 
         if (response.getBodyJsonObject().get('success').getOrThrow().asInt().getValue() == 1) {
@@ -104,32 +99,23 @@ public class BookInfo <: Serializable<BookInfo> {
             .setMethod(RequestMethod.GET)
             .send()
 
-        try {
-            let res = GetBookRes.deserialize(response.getBodyDataModel())
-            res
-        } catch (err: Exception) {
-            throw Exception('获取错误，错误信息${err.message}')
-        }
+        let res = GetBookRes.deserialize(response.getBodyDataModel())
+        res
     }
 
-    public func getDownloadInfo(cookie!: String):GetDownloadInfoRes {
+    public func getDownloadInfo(cookie!: String): GetDownloadInfoRes {
         var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient
             .destroy()
             .setDefaultHeader()
             .setUrl("${zlibEAPI}/book/${id}/${hash}/file")
             .setMethod(RequestMethod.GET)
-            .setIntercept(Intercept(requestL: {
-                http => http.httpHeader.set(key: "cookie", value: cookie)
-            }))
+            .setHeader(LinderHttpHeader())
+            .setHeader(LinderHttpHeader().set(key: "cookie", value: cookie))
             .send()
 
-        try {
-            let res = GetDownloadInfoRes.deserialize(response.getBodyDataModel())
-            res
-        } catch (err: Exception) {
-            throw Exception('获取错误，错误信息${err.message}')
-        }
+        let res = GetDownloadInfoRes.deserialize(response.getBodyDataModel())
+        res
     }
 
     public func serialize(): DataModel {

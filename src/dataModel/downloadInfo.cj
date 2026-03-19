@@ -40,36 +40,9 @@ public struct DownloadInfo <: Serializable<DownloadInfo> {
             url: RequestUrl.from(downloadLink.replace("%", "")),
             writeTimeout: Duration.Max,
             readTimeout: Duration.Max,
-            intercept: Intercept(
-                requestL: {
-                    req: LinderHttp => req.url |> println //输出请求域名
-                },
-                requestErrorL: {
-                    err: Exception => '小笨蛋，请求出错了哦，错误信息为${err.message}' |> println
-                },
-                responseL: {
-                    res: LinderHttpResponse => res.status |> println //输出响应状态
-                },
-                responseErrorL: {
-                    err: Exception => '小笨蛋，请求出错了哦，错误信息为${err.message}' |> println
-                },
-                onStartReadL: {
-                    totalSize: Int64 => '文件总大小为${totalSize}' |> println
-                },
-                onReadProgressUpdateL: {
-                    singleReadSize: Int64, hasReadSize: Int64, totalSize: Int64 => '总进度${Float64(hasReadSize)/Float64(totalSize)*100.0}%，本次读取文件大小为${singleReadSize}, 已经读取了${hasReadSize}, 总大小为${totalSize}' |> println
-                },
-                onReadEndL: {
-                    path: ?Path => '保存完成,保存地址为${path}' |> println
-                }
-            )
         ).send()
         response.status |> println
-        try {
-            response.getBodyFile(filePath: savePath, conflictMethod: conflictMethod)
-        } catch (err: Exception) {
-            throw Exception('获取错误，错误信息${err.message}')
-        }
+        response.getBodyFile(filePath: savePath, conflictMethod: conflictMethod)
     }
 
     public func serialize(): DataModel {

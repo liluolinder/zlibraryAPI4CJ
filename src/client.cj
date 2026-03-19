@@ -5,7 +5,6 @@ import linderHttp.commons.*
 import zlibraryAPI4CJ.common.*
 import zlibraryAPI4CJ.dataModel.*
 
-
 public class ZlibClient {
     public func login(email!: String, password!: String): GetUserInfoOrLoginRes {
         var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
@@ -25,7 +24,7 @@ public class ZlibClient {
     public func login(userID!: UInt64, userKey!: String): GetUserInfoOrLoginRes {
         let tempUserInfo: ZlibUserInfo = ZlibUserInfo()
         tempUserInfo.id = userID
-        tempUserInfo.remixUserkey = userKey
+        tempUserInfo.remixUserKey = userKey
         tempUserInfo.getPersonalInfo()
     }
 
