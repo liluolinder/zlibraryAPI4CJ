@@ -52,19 +52,19 @@ public class BookInfo <: Serializable<BookInfo> {
     public var qualityScore: String = ''
     public var description: String = ''
     public var dl: String = ''
-    public var readOnlineUrl: String = ''
+    public var readOnlineUrl: ?String = ''
     public var isUserSavedBook: ?Bool = None
     public var dataSaved: ?String = None
     public var readOnlineAvailable: Bool = false
 
     public func saveBook(cookie!: String): Bool {
-        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
+        var httpClient = LinderHttpClient(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient
             .destroy()
             .setDefaultHeader()
             .setUrl("${zlibEAPI}/user/book/${id}/save")
             .setMethod(RequestMethod.GET)
-            .setHeader(LinderHttpHeader().set(key: "cookie", value: cookie))
+            .setHeader(HttpHeader().set(key: "cookie", value: cookie))
             .send()
 
         if (response.getBodyJsonObject().get('success').getOrThrow().asInt().getValue() == 1) {
@@ -75,12 +75,12 @@ public class BookInfo <: Serializable<BookInfo> {
     }
 
     public func unSaveBook(cookie!: String): Bool {
-        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
+        var httpClient = LinderHttpClient(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient
             .destroy()
             .setUrl("${zlibEAPI}/user/book/${id}/unsave")
             .setMethod(RequestMethod.GET)
-            .setHeader(LinderHttpHeader().set(key: "cookie", value: cookie))
+            .setHeader(HttpHeader().set(key: "cookie", value: cookie))
             .send()
 
         if (response.getBodyJsonObject().get('success').getOrThrow().asInt().getValue() == 1) {
@@ -91,7 +91,7 @@ public class BookInfo <: Serializable<BookInfo> {
     }
 
     public func getSimilarBook(): GetBookRes {
-        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
+        var httpClient = LinderHttpClient(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient
             .destroy()
             .setDefaultHeader()
@@ -104,14 +104,14 @@ public class BookInfo <: Serializable<BookInfo> {
     }
 
     public func getDownloadInfo(cookie!: String): GetDownloadInfoRes {
-        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
+        var httpClient = LinderHttpClient(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient
             .destroy()
             .setDefaultHeader()
             .setUrl("${zlibEAPI}/book/${id}/${hash}/file")
             .setMethod(RequestMethod.GET)
-            .setHeader(LinderHttpHeader())
-            .setHeader(LinderHttpHeader().set(key: "cookie", value: cookie))
+            .setHeader(HttpHeader())
+            .setHeader(HttpHeader().set(key: "cookie", value: cookie))
             .send()
 
         let res = GetDownloadInfoRes.deserialize(response.getBodyDataModel())
@@ -149,7 +149,7 @@ public class BookInfo <: Serializable<BookInfo> {
             .add(field<String>("qualityScore", qualityScore))
             .add(field<String>("description", description))
             .add(field<String>("dl", dl))
-            .add(field<String>("readOnlineUrl", readOnlineUrl))
+            .add(field<?String>("readOnlineUrl", readOnlineUrl))
             .add(field<?Bool>("_isUserSavedBook", isUserSavedBook))
             .add(field<?String>('date_saved', dataSaved))
             .add(field<Bool>("readOnlineAvailable", readOnlineAvailable))
@@ -160,10 +160,12 @@ public class BookInfo <: Serializable<BookInfo> {
             case data: DataModelStruct => data
             case _ => throw Exception("this data is not DataModelStruct")
         }
+        
         var result = BookInfo()
+        result.title = String.deserialize(dms.get("title"))
+        result.title |> println
         result.id = UInt64.deserialize(dms.get("id"))
         result.contentType = String.deserialize(dms.get("content_type"))
-        result.title = String.deserialize(dms.get("title"))
         result.author = Option<String>.deserialize(dms.get("author"))
         result.volume = String.deserialize(dms.get("volume"))
         result.year = UInt64.deserialize(dms.get("year"))
@@ -190,7 +192,9 @@ public class BookInfo <: Serializable<BookInfo> {
         result.qualityScore = String.deserialize(dms.get("qualityScore"))
         result.description = String.deserialize(dms.get("description"))
         result.dl = String.deserialize(dms.get("dl"))
-        result.readOnlineUrl = String.deserialize(dms.get("readOnlineUrl"))
+        
+        result.readOnlineUrl = Option<String>.deserialize(dms.get("readOnlineUrl"))
+        
         result.isUserSavedBook = Option<Bool>.deserialize(dms.get("_isUserSavedBook"))
         result.dataSaved = Option<String>.deserialize(dms.get("date_saved"))
         result.readOnlineAvailable = Bool.deserialize(dms.get("readOnlineAvailable"))

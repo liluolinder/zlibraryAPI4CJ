@@ -1,13 +1,13 @@
 package zlibraryAPI4CJ
 
 import linderHttp.*
-import linderHttp.commons.*
 import zlibraryAPI4CJ.common.*
 import zlibraryAPI4CJ.dataModel.*
+import stdx.encoding.url.Form
 
 public class ZlibClient {
     public func login(email!: String, password!: String): GetUserInfoOrLoginRes {
-        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
+        var httpClient = LinderHttpClient(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let body = Form()
         body.add("email", email)
         body.add("password", password)
@@ -29,7 +29,7 @@ public class ZlibClient {
     }
 
     public func getRecommendBook(): GetBookRes {
-        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
+        var httpClient = LinderHttpClient(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient.setDefaultHeader().setUrl("${zlibEAPI}/book/most-popular").send()
         let res = GetBookRes.deserialize(response.getBodyDataModel())
         res
@@ -48,14 +48,13 @@ public class ZlibClient {
         if (yearTo.isSome()) {
             body.add('yearTo', "${yearTo}")
         }
-        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
+        var httpClient = LinderHttpClient(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient
             .setDefaultHeader()
             .setMethod(RequestMethod.POST)
             .setUrl("${zlibEAPI}/book/search")
             .setBody(body)
             .send()
-
         let res = GetBookWithInfoAndPaginationRes.deserialize(response.getBodyDataModel())
         res
     }

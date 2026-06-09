@@ -31,9 +31,9 @@ public class BookInfoBrief <: Serializable<BookInfoBrief> {
     public var hash: String = ''
 
     public func getBookInfo(cookie!: String = ''): GetBookInfoRes {
-        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
+        var httpClient = LinderHttpClient(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient
-            .setHeader(LinderHttpHeader().set(key: "cookie", value: cookie))
+            .setHeader(HttpHeader().set(key: "cookie", value: cookie))
             .setUrl("${zlibEAPI}/book/${id}/${hash}")
             .send()
 
@@ -42,7 +42,7 @@ public class BookInfoBrief <: Serializable<BookInfoBrief> {
     }
 
     public func getSimilarBook(): GetBookRes {
-        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
+        var httpClient = LinderHttpClient(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient
             .destroy()
             .setDefaultHeader()
@@ -59,13 +59,13 @@ public class BookInfoBrief <: Serializable<BookInfoBrief> {
     }
 
     public func getDownloadInfo(cookie!: String) {
-        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
+        var httpClient = LinderHttpClient(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient
             .destroy()
             .setDefaultHeader()
             .setUrl("${zlibEAPI}/book/${id}/${hash}/file")
             .setMethod(RequestMethod.GET)
-            .setHeader(LinderHttpHeader().set(key: "cookie", value: cookie))
+            .setHeader(HttpHeader().set(key: "cookie", value: cookie))
             .send()
 
         let res = GetDownloadInfoRes.deserialize(response.getBodyDataModel())

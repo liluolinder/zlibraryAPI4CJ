@@ -1,5 +1,7 @@
 package zlibraryAPI4CJ.dataModel
 
+
+
 public struct GetUserInfoOrLoginRes <: Serializable<GetUserInfoOrLoginRes> {
     public var success: UInt8 = 0
 
@@ -45,15 +47,15 @@ public class ZlibUserInfo <: Serializable<ZlibUserInfo> {
         }
     }
 
-    private prop header: LinderHttpHeader {
+    private prop header: HttpHeader {
         get() {
-            let header: LinderHttpHeader = LinderHttpHeader().set(key: "cookie", value: cookie)
+            let header: HttpHeader = HttpHeader().set(key: "cookie", value: cookie)
             header
         }
     }
 
     public func getPersonalInfo(): GetUserInfoOrLoginRes {
-        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
+        var httpClient = LinderHttpClient(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient
             .destroy()
             .setHeader(header)
@@ -68,7 +70,7 @@ public class ZlibUserInfo <: Serializable<ZlibUserInfo> {
     public func getSaved(page!: UInt64 = 1): GetBookWithInfoAndPaginationRes {
         let param = Form()
         param.add("page", "${page}")
-        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
+        var httpClient = LinderHttpClient(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient
             .destroy()
             .setHeader(header)
@@ -82,7 +84,7 @@ public class ZlibUserInfo <: Serializable<ZlibUserInfo> {
     }
 
     public func getRecommendBook(): GetBookRes {
-        var httpClient = LinderHttp(readTimeout: Duration.minute, writeTimeout: Duration.minute)
+        var httpClient = LinderHttpClient(readTimeout: Duration.minute, writeTimeout: Duration.minute)
         let response = httpClient
             .destroy()
             .setHeader(header)
