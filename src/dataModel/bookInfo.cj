@@ -163,7 +163,6 @@ public class BookInfo <: Serializable<BookInfo> {
         
         var result = BookInfo()
         result.title = String.deserialize(dms.get("title"))
-        result.title |> println
         result.id = UInt64.deserialize(dms.get("id"))
         result.contentType = String.deserialize(dms.get("content_type"))
         result.author = Option<String>.deserialize(dms.get("author"))
@@ -192,9 +191,7 @@ public class BookInfo <: Serializable<BookInfo> {
         result.qualityScore = String.deserialize(dms.get("qualityScore"))
         result.description = String.deserialize(dms.get("description"))
         result.dl = String.deserialize(dms.get("dl"))
-        
         result.readOnlineUrl = Option<String>.deserialize(dms.get("readOnlineUrl"))
-        
         result.isUserSavedBook = Option<Bool>.deserialize(dms.get("_isUserSavedBook"))
         result.dataSaved = Option<String>.deserialize(dms.get("date_saved"))
         result.readOnlineAvailable = Bool.deserialize(dms.get("readOnlineAvailable"))
