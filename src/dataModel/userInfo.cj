@@ -75,7 +75,7 @@ public class ZlibUserInfo <: Serializable<ZlibUserInfo> {
             .destroy()
             .setHeader(header)
             .setUrl("${zlibEAPI}/user/book/saved")
-            .setMethod(RequestMethod.GET)
+            .setMethod(RequestMethod.POST)
             .setBody(param)
             .send()
 
