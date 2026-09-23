@@ -43,10 +43,11 @@ public struct Pagination <: Serializable<Pagination> {
             case _ => throw Exception("this data is not DataModelStruct")
         }
         var result = Pagination()
-        result.limit = UInt64.deserialize(dms.get("limit"))
-        result.current = UInt64.deserialize(dms.get("current"))
-        result.totalItems = UInt64.deserialize(dms.get("total_items"))
-        result.totalPages = UInt64.deserialize(dms.get("total_pages"))
+        // 容错：字段缺失时退回 0（见 bookInfo.cj 的 u64Or）
+        result.limit = u64Or(dms.get("limit"))
+        result.current = u64Or(dms.get("current"))
+        result.totalItems = u64Or(dms.get("total_items"))
+        result.totalPages = u64Or(dms.get("total_pages"))
         return result
     }
 }
