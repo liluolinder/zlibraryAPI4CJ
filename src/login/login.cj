@@ -116,9 +116,9 @@ public class LoginApi {
     public static func loginWithToken(client: ZlibClient, userId: Int64, userKey: String,
         siteLanguage!: ?String = None): LoginResult {
         let seed = tokenCredential(userId, userKey, siteLanguage)
-        let user = client.withCredential(seed).getObject(PROFILE_PATH, "user") { obj =>
-            ZlibUser.fromJsonObject(obj)
-        }
+        // decoder 之后还有带默认值的 query 参数，所以这里必须显式传 lambda（不能用尾随 lambda 语法）
+        let user = client.withCredential(seed).getObject(PROFILE_PATH, "user",
+            { obj => ZlibUser.fromJsonObject(obj) })
         LoginResult(user, credentialFor(user, seed))
     }
 
@@ -220,12 +220,12 @@ public class LoginApi {
  * 用 `??` 而不是 `match`：这里只是「取默认值」，两种写法语义相同，
  * 但 `??` 更短且不引入分支。
  */
-private func credentialOf(user: ZlibUser, siteLanguage: ?String): ZlibCredential {
+internal func credentialOf(user: ZlibUser, siteLanguage: ?String): ZlibCredential {
     user.toCredential(siteLanguage: siteLanguage ?? ZLIB_DEFAULT_SITE_LANGUAGE)
 }
 
 /** 用 `id` + `userKey` 构造凭证，语言参数为空时回退默认语言。 */
-private func tokenCredential(userId: Int64, userKey: String,
+internal func tokenCredential(userId: Int64, userKey: String,
     siteLanguage: ?String): ZlibCredential {
     ZlibCredential.of(userId, userKey,
         siteLanguage: siteLanguage ?? ZLIB_DEFAULT_SITE_LANGUAGE)
@@ -238,7 +238,7 @@ private func tokenCredential(userId: Int64, userKey: String,
  * 直接 `user.toCredential()` 会得到空 key（`isLoggedIn == false`），
  * 让「凭证明明有效」的登录变成静默的游客态。这里显式兜底。
  */
-private func credentialFor(user: ZlibUser, fallback: ZlibCredential): ZlibCredential {
+internal func credentialFor(user: ZlibUser, fallback: ZlibCredential): ZlibCredential {
     if (user.remixUserKey.isEmpty()) {
         return fallback
     }

@@ -1,0 +1,373 @@
+# Agent.md — zlibraryAPI4CJ 开发指南
+
+> 本文件面向「后续接手本库的 AI Agent 或人类开发者」，记录**必读的上下文、
+> 硬约束、API 约定与验证方式**。读完它应当能直接开始改动，而不需要重新
+> 逆向一遍现有代码。
+>
+> 运行期踩坑与决策证据见 [`MEMORY.md`](MEMORY.md)；
+> 调用方手册见 [`API_USAGE.md`](API_USAGE.md)；
+> 旧版（v1）到新版（v2）的迁移对照见 [`doc/feature_api.md`](doc/feature_api.md)；
+> eapi 端点事实清单见 [`doc/eapi-endpoints.md`](doc/eapi-endpoints.md)。
+
+---
+
+## 1. 项目定位
+
+`zlibraryAPI4CJ` 是 **Z-Library EAPI 的仓颉（Cangjie）静态库**，按功能划分子包，
+把社区逆向出来的 eapi 接口（登录、图书、搜索、用户、站点信息）做成
+类型安全、可复用、符合仓颉语言习惯的库。
+
+- 模块名 / 根包：`zlibraryAPI4CJ`
+- 输出类型：**static**（`cjpm.toml` 中 `output-type = "static"`）
+- 语言 / 编译器：仓颉 **1.2.0**（`cjc` / `cjpm`），宿主平台 `x86_64-w64-mingw32`
+- HTTP：[LinderHttp](https://gitcode.com/LiquidStudio/LinderHttp) 2.0（本地 `path` 依赖）
+- JSON：`stdx.encoding.json`（**手动容错解码，不用宏**）
+- 版本：`2.0.0`（对应按 bbapi 模式重写的第二版；第一版见 git 历史）
+
+**静态库不能有 `main`**。可运行验证放在独立消费工程里
+（本仓库内的 `doccheck/` 就是这样的消费工程，见第 11 节）。
+
+> 本库**不是** Z-Library 官方库，接口路径与字段来自社区逆向文档
+> （来源见 `doc/eapi-endpoints.md`）。Z-Library 的域名、字段、鉴权方式
+> 都可能随时变化，所以代码里所有「不稳定」的假设都写成了容错逻辑。
+> 使用前请阅读 README 末尾的免责声明。
+
+---
+
+## 2. 硬约束（改动前必看）
+
+| 约束 | 说明 |
+| --- | --- |
+| `output-type = "static"` | 不要改成 executable；不要往 `src/` 加 `main()` |
+| `cjc-version = "1.2.0"` | 与工具链一致；不要降级到 1.1.0（旧版写法依赖已移除的 API，见 MEMORY） |
+| HTTP 依赖 | `linderHttp = { path = "C:/Project/Cangjie/LinderHttp" }`，依赖名大小写必须与对方 `cjpm.toml` 的 `name` 完全一致 |
+| JSON 依赖 | 只用 `stdx.encoding.json`；**不要**引入 CJson（原因见 MEMORY，「为什么不用 CJson」） |
+| 平台配置 | `[target.x86_64-w64-mingw32]` 段必须保留 `compile-option = "--cfg \"ohos=false\""`、`link-option = "-lcrypt32"` 与 stdx 的 `bin-dependencies.path-option` |
+| 编译选项 | 主工程 `compile-option = "-Woff unused"`；不要随手加 `-Werror`（会把他人的 `unused` 变成构建失败） |
+| 写作用域 | 文档类改动只碰 `*.md`、`doc/**`、`doccheck/**`；**不要**为了改文档去改动 `src/**` 与 `cjpm.toml` |
+| 提交 | 本仓库由 Lead/维护者统一提交；子任务禁止自行 `git commit` |
+
+`cjpm.toml` 里除 Windows 外的 target 段（ohos / android / ios）是给
+鸿蒙/移动端交叉编译预留的，改 Windows 相关字段时**不要**动它们。
+
+---
+
+## 3. 子包结构与依赖方向
+
+```
+zlibraryAPI4CJ (root: 只做 public import core.* 与 model.*)
+├── core    客户端 / 凭证 / 站点探测 / 信封 / 错误 / 查询串 / 文本截断
+├── model   跨子包共享的数据模型（图书 / 用户 / 下载信息 / 分页）
+├── login   邮箱密码登录、remix 凭证登录、注册 / 找回密码 / 第三方 token 登录
+├── book    图书详情、相似图书、下载信息、收藏 / 取消收藏 / 删除、发送到 Kindle/邮箱、落盘
+├── search  图书搜索、最热门、最近上传
+├── user    个人资料、收藏列表、下载历史、个性化推荐、资料更新
+└── info    站点信息（语言 / 扩展名 / 域名 / 套餐），返回原始 JSON
+```
+
+**依赖方向严格单向：`core ← model ← 业务子包`，业务子包之间互不 import。**
+
+原因：Z-Library 的 `BookInfo` 同时出现在 `book` / `search` / `user` 的返回值里，
+`ZlibUser` 同时被 `login` 与 `user` 使用。若每个业务子包各定义一份模型，
+要么重复代码，要么让子包互相 import、把依赖图变成网。所以共享模型统一下沉到
+`model`——这也是本库与 bbapi（模型放业务子包内）**唯一的架构差异**。
+
+### 3.1 各子包文件与职责
+
+| 子包 | 文件 | 职责 |
+| --- | --- | --- |
+| `core` | `core_pkg.cj` | 包文档、常量 `ZLIB_API_PREFIX` / `ZLIB_DEFAULT_SITE_LANGUAGE` |
+| | `client.cj` | `ZlibClient`（请求 / 信封解包 / 派生 / 下载）、`ZlibClientConfig` |
+| | `credential.cj` | `ZlibCredential`：`remix_userid` / `remix_userkey` / `siteLanguage` |
+| | `host.cj` | `ZlibHost`、`ZlibProbe`、`probeSite` / `checkAccess` / `canAccessZlib` / `resolveZlibHost` |
+| | `envelope.cj` | `ZlibEnvelope` + 宽松 JSON 读取（`readString` / `readInt` / `decodeEach` …） |
+| | `error.cj` | `ZlibErrorKind`、`ZlibError` |
+| | `query.cj` | `Query`、`formEncode`、`withQuery`、`appendPair`、`percentEncode` |
+| | `text.cj` | `truncateRunes` / `truncateBytesSafe`（UTF-8 安全截断） |
+| | `core_test.cj` | 离线单测（站点规范化、凭证、查询串、信封、错误、客户端生命周期） |
+| `model` | `book.cj` | `BookInfo`（详情）、`BookInfoBrief`（列表项） |
+| | `user.cj` | `ZlibUser` |
+| | `download.cj` | `DownloadInfo`（签名下载链接 + 文件名生成） |
+| | `page.cj` | `Pagination`、`BookPage` |
+| | `model_test.cj` | 固定 JSON 样本的解码 / 派生测试 |
+| `book` | `book.cj` | `BookApi`：`info` / `infoOf` / `similar` / `similarOf` / `file` / `fileOf` / `formats` / `save` / `saveBrief` / `unsave` / `unsaveBrief` / `remove` / `sendTo` / `download` / `downloadBook` |
+| | `book_pkg.cj` | 包文档（覆盖的端点表） |
+| | `book_test.cj` | 离线单测（查询参数、落盘前置校验、URL 拼接） |
+| `login` | `login.cj` | `LoginApi` / `LoginResult`（`login` / `loginWithToken` / `loginClient` / `loginTokenClient` / `register` / `requestPasswordRecovery` / `resendConfirmation` / `tokenSignIn`） |
+| | `login_pkg.cj` | 包文档 |
+| | `login_test.cj` | 离线单测（凭证派生、表单构造、LoginResult 不可变） |
+| `search` | `search.cj` | `SearchApi`：`search` / `mostPopular` / `recently` |
+| | `search_pkg.cj` | 包文档 |
+| | `search_test.cj` | 离线单测（表单编码、数组参数保留重复 key、固定 JSON 解码） |
+| `user` | `user.cj` | `UserApi`：`profile` / `saved` / `downloaded` / `recommended` / `update` / `hideBanner` / `donations` |
+| | `user_pkg.cj` | 包文档 |
+| | `user_test.cj` | 离线单测（分页 query、update 只发非 None 字段） |
+| `info` | `info.cj` | `InfoApi`：`site` / `languages` / `extensions` / `domains` / `plans`（均返回 `JsonObject`） |
+| | `info_pkg.cj` | 包文档 |
+| | `info_test.cj` | 离线单测（信封解析、原始 JSON 读取） |
+
+每个子包一个 `*_pkg.cj`，只放 `package` 声明、必要的 import 和**包级文档注释**
+（说明这个包覆盖哪些端点、有哪些坑）。根包 `src/zlibraryAPI4CJ.cj` 只做
+`public import zlibraryAPI4CJ.core.*` 与 `public import zlibraryAPI4CJ.model.*`。
+
+### 3.2 命名与可见性
+
+- 包名：`zlibraryAPI4CJ.core` / `.model` / `.login` / `.book` / `.search` / `.user` / `.info`。
+- 根包导出后，调用方写 `import zlibraryAPI4CJ.*` 拿客户端与模型，
+  再按需 `import zlibraryAPI4CJ.book.*` 等。
+- 纯内部实现（如 `resolveLocation`、`originOf`、`jsonToInt`）一律 `internal func` 或
+  `private func`，**不要**为了测试方便改成 `public`；测试放在同包内即可访问 `internal`。
+
+---
+
+## 4. API 设计约定（改代码时请保持）
+
+1. **接口函数都是 `public static func`，第一个参数是 `ZlibClient`。**
+   仓颉没有包级扩展函数，把 client 显式传参比让 API 类持有状态更清晰；
+   接口函数本身无状态，同一个客户端可以并发复用。
+
+2. **`None` 语义优先于异常。**
+   - 「本来可能没有数据」→ 返回 `?T` 或空集合（`BookPage.first()`、`readOptionalString`）；
+   - 「业务失败」→ 抛 `ZlibError`（`success=0`、未登录、书不存在）；
+   - 「传输失败」→ 让 LinderHttp 的 `HttpError` 原样抛出，**不要**在这里吞掉。
+   这两类异常是分开的，调用方可以分别 `catch`。
+
+3. **列表分页封装成 `BookPage` 而不是裸数组。**
+   `BookPage` 带 `pagination`、`hasMore()`、`nextPage()`、`first()`；
+   只给数组会迫使每个调用方自己重新推一遍分页逻辑。
+
+4. **客户端不可变。** 凭证 / 站点地址 / 配置都不能原地改，
+   派生用 `withCredential` / `withBaseUrl` / `withHost`
+   （共享同一个底层 `HttpClient` 与连接池）。
+   同一进程里同时需要游客态与登录态时，派生两个客户端即可干净隔离。
+
+5. **能复用就复用。**
+   - 取「根上的某个对象字段」→ `client.getObject(path, field, decoder)`；
+   - 取「根上的某个数组字段」→ `client.getObjects(path, field, decoder)`；
+   - 取原始信封 → `client.getEnvelope(path, query: ...).unwrap(path: path)`；
+   - 解码 JSON → 模型类的 `fromJsonObject`；
+   - 截断字符串 → `truncateRunes` / `truncateBytesSafe`
+     （**绝对不要写 `text[0..n]`**，`String` 下标是字节下标，见 MEMORY）；
+   - 编码 query / 表单 → `Query` / `formEncode`（同名参数不能去重）。
+
+6. **解码器用闭包传参，不要试图做泛型静态接口分派。**
+   `client.getObject<T>(path, field, decoder: (JsonObject) -> T)` 的设计原因：
+   仓颉当前不支持「对泛型形参做静态接口成员分派」，
+   `{ obj => BookInfo.fromJsonObject(obj) }` 既类型安全又零反射。
+
+7. **文档注释写「为什么」而不只是「是什么」。**
+   尤其是与外部文档不一致、或踩过坑的地方（字段类型漂移、域名限制、
+   百分号编码、个人域名下载），必须写明实测结论，否则下一个人会照文档再踩一次。
+
+---
+
+## 5. 响应信封与容错解码
+
+eapi 的两个稳定锚点：
+
+- 成功：`{"success": 1, ...}`，业务数据直接平铺在根上（`user` / `book` /
+  `books` / `file` / `pagination` …）；
+- 失败：`{"success": 0, "error": "..."}`（部分老接口用 `msg`；`success` 也可能是
+  `true` 或 `"1"`）。
+
+`ZlibEnvelope` 只做三件事：解析根对象、判定 `success`、按字段取子对象/数组。
+**不要**给不同接口各写一个信封类，也不要在信封层假设业务字段名。
+
+业务子包的标准写法：
+
+```cangjie
+// 取根上的对象字段（book / user / file）
+client.getObject("/book/${id}/${hash}", "book", { obj => BookInfo.fromJsonObject(obj) },
+    query: switchLanguageQuery(switchLanguage))
+
+// 取根上的数组字段（books）
+client.getObjects("/book/${id}/${hash}/similar", "books",
+    { obj => BookInfoBrief.fromJsonObject(obj) })
+
+// 形状不稳定的接口：直接返回原始根对象
+let path = "/book/${id}/${hash}/formats"
+client.getEnvelope(path).unwrap(path: path)
+```
+
+### 5.1 宽松读取是硬约定，不是可选优化
+
+Z-Library 的字段类型会漂移（同一字段可能是数字或字符串、布尔可能是 `0/1`、
+可选字段会整条缺失）。所以模型解码**一律**走 `core` 的读函数：
+
+| 函数 | 语义 |
+| --- | --- |
+| `readString(obj, key)` | 字符串；数字/布尔转文本；缺失返回 `""` |
+| `readStringOr(obj, key, fallback)` | 同上，空串时用 `fallback` |
+| `readOptionalString(obj, key)` | 缺失 / `null` / 空串 → `None` |
+| `readInt(obj, key)` / `readIntOr` | 兼容整数、浮点、数字字符串、布尔 |
+| `readFloat(obj, key)` | 兼容整数与数字字符串 |
+| `readBool(obj, key)` / `readBoolOr` | 兼容 `0/1`、`"true"/"false"` |
+| `objectFieldOf(obj, key)` | 对象字段，否则 `None` |
+| `arrayFieldOf(obj, key)` | 数组字段，否则空数组 |
+| `decodeEach(items, decoder)` | 逐条解码，**跳过单条失败**（列表接口默认用它） |
+| `decodeEachOrThrow(items, decoder)` | 逐条解码，任一条失败即抛错（需要严格语义时用） |
+
+判断标准：**单条脏数据不能拖垮整页结果**。需要严格语义的场合才用
+`decodeEachOrThrow`，并在文档注释里写明为什么。
+
+### 5.2 错误映射
+
+`ZlibEnvelope.unwrap()` 会把服务端文案做一次粗分类：
+
+| 服务端文案包含 | 映射到 |
+| --- | --- |
+| `login` / `log in` | `ZlibErrorKind.NotLoggedIn` |
+| `not found` / `nothing has been found` | `ZlibErrorKind.NotFound` |
+| 其它 `success=0` | `ZlibErrorKind.ApiFailure`（保留 `serverMessage` 原文） |
+
+非 JSON 响应（风控页、登录页、空响应）→ `ZlibErrorKind.BadResponse`，
+错误消息里只放**截断后的**响应片段（`truncateBytesSafe`），不要把整页 HTML 塞进异常。
+HTTP 层失败（DNS / TLS / 超时 / 池满）由 LinderHttp 抛 `HttpError`，不要在这里包一层。
+
+---
+
+## 6. 仓颉语言特性使用清单
+
+新增代码应对齐下表（都是本库已经在用的写法）：
+
+| 特性 | 用在哪 | 注意 |
+| --- | --- | --- |
+| `prop` 计算属性 | `ZlibCredential.isLoggedIn`、`ZlibErrorKind.code`、`ZlibClient.baseUrl`、`ZlibEnvelope.success` | 计算属性不落字段；**实现 `Resource` 时 `isClosed` 必须是方法而不是 `prop`** |
+| `Resource` 接口 | `ZlibClient`、`ZlibClientConfig` 的 `close()` / `isClosed()` | `isClosed` 写成 `prop` 会与接口函数冲突，编译失败 |
+| 无参枚举 + `Equatable` | `ZlibErrorKind` | 无参枚举默认不能用 `==`，需显式 `operator func ==` / `!=`（本库按 `code` 比较） |
+| `match` 模式匹配 | 枚举映射、`JsonValue.kind()` 分派、`Option` 解包 | 优先 `if (let Some(x) <- v)` 或 `match`，不要 `getOrThrow()` 处理预期内的缺失 |
+| `public import` | 根包 re-export `core.*` / `model.*` | 只允许在根包做 re-export；业务子包内部用普通 `import` |
+| 闭包作为解码器 | `getObject(..., decoder)`、`decodeEach` | 见 4.6；不要试图用泛型静态接口分派 |
+| 具名参数 | `client.getEnvelope(path, query: ...)`、`create(baseUrl: ...)` | **具名参数必须写在位置参数之后**；`= None` 的默认值不要重复传 |
+| 字符串插值 | 所有日志与错误消息 | 插值目标必须实现 `ToString`；`ZlibEnvelope` 只写了 `toString()` 但**没有**声明 `<: ToString`，所以 `${envelope}` 编译不过 |
+| 字符字面量 | —— | 单引号是 **Rune/Char**（`'a'`），不是字符串；旧代码 `field<?String>('date_saved', ...)` 是类型错误 |
+| 块注释可嵌套 | 文档注释 `/** */` | 文档注释里**不能**出现 `/*`（会开启嵌套注释，吞掉后面的代码） |
+
+> 仓颉的 `import` 是**按文件**生效的（不是按包）：每个用到 `JsonObject`、
+> `ZlibError`、`BookInfo` 的文件都要自己写 import。旧版 `importFile.cj`
+> 试图在一个文件里集中 import 供其它文件共享，是行不通的（见 MEMORY）。
+
+---
+
+## 7. 构建、测试与验证
+
+### 7.1 构建
+
+```powershell
+cd C:\Project\Cangjie\zlibraryAPI4CJ
+cjpm build
+```
+
+### 7.2 单元测试（全部离线）
+
+```powershell
+cd C:\Project\Cangjie\zlibraryAPI4CJ
+cjpm test --no-progress                       # 全部子包（当前应为 TOTAL 93 / PASSED 93）
+cjpm test --no-progress src\core src\model    # 只跑部分包（仍会先编译整个模块）
+```
+
+> ⚠ `cjpm test <子包>` 仍然要先把**整个模块**编译通过。只要有一个并行开发的
+> 子包编译失败，单包测试也跑不起来——这时先等该包修好，或只用
+> `cjpm build --target-dir` 隔离排查。
+
+### 7.3 预检脚本（写新文件前）
+
+```powershell
+python C:\Users\liluo\.agents\skills\cangjie-lang-features\scripts\check_cangjie_closure.py <文件>
+```
+
+要求 **exit 0 且 0 warning**。它会拦一批仓颉语法/习惯错误
+（空 `match` 分支 CJ044、数字类型后缀 CJ038、`== None` CJ040、
+整数极值名 CJ026、`~` 取反 CJ039 等）。
+已知误报：`case X => "字符串字面量"` 这种「分支表达式是纯字面量」的写法会被
+CJ044 误判为空分支，规避写法见 MEMORY。
+
+### 7.4 文档示例编译校验（`doccheck/`）
+
+`doccheck/` 是一个 **executable** 消费工程，通过 `path` 依赖主工程，
+把 `API_USAGE.md` 里的每段示例落成可编译函数。它是文档与代码一致性的
+唯一自动化保障：
+
+```powershell
+cd C:\Project\Cangjie\zlibraryAPI4CJ\doccheck
+cjpm build
+```
+
+**改了任何 public 签名，必须同步改 `API_USAGE.md` 与 `doccheck/src/main.cj`，
+并让 `doccheck` 构建通过。** 文档示例编译不过，是本库最容易发生的事故。
+
+### 7.5 联网验证（可选，且常常不可用）
+
+本库的 `cjpm test` **不联网**（固定 JSON 样本）。要验证「接口是否还能用」，
+只能用独立消费工程真打请求；但注意本机网络对 Z-Library 候选镜像几乎不可达
+（实测 503 / 超时），所以默认假定**离线开发**，接口事实以社区文档为准。
+
+---
+
+## 8. 新增一个接口的标准流程
+
+1. **查事实**：在 `doc/eapi-endpoints.md` 与外部社区文档
+   （baroxyton/zlibrary-eapi-documentation、bipinkrish/Zlibrary-API、
+   sertraline/zlibrary）里确认路径、方法、参数、是否需要登录；
+   文档没写的字段类型标成「推断」，不要伪装成实测。
+2. **归属子包**：登录 → `login`；图书 → `book`；搜索 → `search`；
+   账号/收藏/历史 → `user`；站点元信息 → `info`。
+   **不要**新建跨子包依赖。
+3. **建模型**（如果响应是强类型）：加到 `model` 对应文件，
+   字段一律 `public var` + 默认值，解码函数 `fromJsonObject` 只走宽松读取。
+   形状不稳定的接口干脆返回 `JsonObject`，不要硬造模型。
+4. **写接口函数**：在业务子包加 `public static func`，第一参数 `client: ZlibClient`，
+   用 `getObject` / `getObjects` / `getEnvelope` 之一取数据。
+   需要在路径里拼 id/hash 的，写清「id 和 hash 必须来自同一本书」。
+5. **补单元测试**：在对应 `*_test.cj` 加固定 JSON 样本 / 纯函数断言。
+   **不联网**；网络部分不测。
+6. **跑验证**：`check_cangjie_closure.py` → `cjpm build` → `cjpm test`。
+7. **补文档**：`API_USAGE.md` 加章节（参数表 + 返回值 + 示例 + 注意事项），
+   `doc/eapi-endpoints.md` 加端点行，`doccheck/src/main.cj` 加一个校验函数。
+8. **补 MEMORY**：如果发现了新的字段漂移 / 域名行为 / 语言坑，记进 `MEMORY.md`。
+
+---
+
+## 9. 代码风格
+
+- 注释与文档注释用**中文**；术语保留英文原词（endpoint、query、hash、remix_userkey）。
+- 文档注释解释「为什么」，尤其是与官方/社区文档不一致、或违反直觉的地方。
+- 每个子包一个 `xxx_pkg.cj`，只放包声明 + 包文档；不要在里面放业务代码。
+- 数据模型集中在 `model`，接口函数集中在 `<功能>.cj`；
+  单文件控制在 400 行上下，超了就按「模型 / 接口 / 测试」拆。
+- 常量用 `public let`，不要用可变全局变量（旧版的 `public var zlibBaseUrl`
+  是反面教材：改一个全局变量会影响所有客户端，见 MEMORY）。
+- 每行代码宽度约 100 列；长参数列表按「一个参数一行、续行缩进」排版。
+- 新增 public API 必须写文档注释，并同步 `API_USAGE.md` + `doccheck`。
+
+---
+
+## 10. 当前状态与后续建议
+
+- 七个业务子包全部完成（`core` / `model` / `login` / `book` / `search` / `user` / `info`），
+  每个包都有离线单测；`cjpm test --no-progress` 当前为 **TOTAL 93 / PASSED 93 / FAILED 0**。
+- `doccheck/` 已建立，`cd doccheck && cjpm build` 通过；`API_USAGE.md`
+  的每个示例在 `doccheck/src/main.cj` 里都有一个对应函数。
+- 未覆盖的 eapi 能力：`/user/donations` 的形状不稳定（返回原始 JSON）；
+  `/book/{id}/{hash}/formats` 同样只做原始透传；`/papi`、`/rpc.php`
+  等注册验证码流程未覆盖；书单（booklist）未覆盖。
+- 所有接口**未经真实站点回归**（开发机对候选镜像 503/超时），
+  字段事实以 `doc/eapi-endpoints.md` 的社区文档标注为准。
+- 若 Z-Library 恢复稳定的官方域名，可把 `ZlibHost.MIRRORS` 收敛，
+  但**不要**删除 `baseUrl` 配置入口——域名轮换是这个项目的长期约束。
+
+---
+
+## 11. 快速排错表
+
+| 现象 | 先查这里 |
+| --- | --- |
+| 构建报 `undefined reference` / TLS 相关链接错误 | `cjpm.toml` 的 `[target.x86_64-w64-mingw32]`：`-lcrypt32`、stdx `path-option` |
+| 请求返回 `BadResponse`（非 JSON） | 域名失效 / 被风控页替换；先 `probeSite` / `resolveZlibHost` |
+| 接口一直 `NotLoggedIn` | 登录后是否用 `withCredential` 派生了客户端；`remix_userkey` 是否为空 |
+| 搜索/收藏分页拿不到第二页 | 看 `BookPage.pagination` 的 `current` / `total_pages` 是否为 0（服务端偶尔不给） |
+| 下载链接 403 / 404 | 链接带签名且常常指向个人域名，过期就重调 `BookApi.file()` |
+| 中文被截断成乱码 | 用了 `text[0..n]`，改用 `truncateRunes` / `truncateBytesSafe` |
+| `cjpm test src\xxx` 报别的包的错 | 整模块编译；先修好那个包，或等它完成 |
+| 文档示例编译报「找不到成员」 | `doccheck` 没跟着改；以源码签名为准修文档 |
+| `doccheck` 报 target 段相关链接错误 | `doccheck/cjpm.toml` 少抄了主工程的 `[target.x86_64-w64-mingw32]` 三段配置 |
