@@ -864,6 +864,28 @@ class UnifiedErrorTest {
     }
 
     @TestCase
+    func testWrappedHttpErrorDetailUsesDescribe(): Unit {
+        // HttpError.describe() 比 message 信息量大：类别 + URL + 重试次数
+        let httpError = HttpError(ErrorKind.Connect, "Failed to resolve address x",
+            url: "https://x.example/eapi/book/1", attempts: 2)
+        let wrapped = ZlibError.wrapUnhandled("/book/1", httpError)
+        @Expect(wrapped.detail.contains("Connect"), true)
+        @Expect(wrapped.detail.contains("https://x.example/eapi/book/1"), true)
+        @Expect(wrapped.detail.contains("attempts=2"), true)
+        @Expect(wrapped.cause.isSome(), true)
+    }
+
+    @TestCase
+    func testWrappedStatusErrorDetailHasStatusAndBody(): Unit {
+        // StatusError.describe() 还带状态码与响应体开头
+        let statusError = StatusError(403, "Forbidden", url: "https://x.example/eapi/book/1",
+            attempts: 1, bodyPreview: "<html>blocked</html>")
+        let wrapped = ZlibError.wrapUnhandled("/book/1", statusError)
+        @Expect(wrapped.detail.contains("HTTP 403"), true)
+        @Expect(wrapped.detail.contains("blocked"), true)
+    }
+
+    @TestCase
     func testIoKind(): Unit {
         let error = ZlibError.io("book/download", "磁盘写满")
         @Expect(error.kind == ZlibErrorKind.Io, true)

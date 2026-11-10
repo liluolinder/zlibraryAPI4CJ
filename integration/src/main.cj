@@ -84,6 +84,11 @@ main(): Int64 {
     println("")
 
     let checks = Checks()
+    // 只调试「底层 HttpError 的 detail 文本」时设 ZLIB_TEST_STAGE=httpdetail
+    if (authStage() == "httpdetail") {
+        checkHttpErrorDetail(checks)
+        return checks.summary()
+    }
     // 只调试登录后链路时设 ZLIB_TEST_ONLY_AUTH=1（跳过较慢的换站等前置检查）
     var onlyAuth = false
     if (let Some(flag) <- getVariable("ZLIB_TEST_ONLY_AUTH")) {
@@ -110,6 +115,35 @@ main(): Int64 {
     // 避免把真实账号写进仓库（见 integration/README 说明）。
     checkAuthenticatedFromEnv(checks)
     checks.summary()
+}
+
+// ---------------------------------------------------------------------------
+// 底层 HttpError 的 detail 文本（2.2.2：应包含 describe() 的类别/URL/重试次数）
+// ---------------------------------------------------------------------------
+
+func checkHttpErrorDetail(checks: Checks): Unit {
+    let config = ZlibClientConfig()
+    config.maxAttempts = 1
+    config.readTimeout = Duration.second * 5
+    config.totalTimeout = Duration.second * 10
+    let client = ZlibClient.create(baseUrl: DEAD_DOMAIN, config: config)
+    try {
+        let _ = UserApi.profile(client)
+        checks.check("死域名请求应失败", false)
+    } catch (err: ZlibError) {
+        checks.check("detail 含底层描述前缀", err.detail.contains("底层请求失败："),
+            detail: err.detail)
+        // HttpError.describe() 会带类别（Connect/Url/...）与 URL
+        let hasKind = err.detail.contains("Connect") || err.detail.contains("Url") ||
+            err.detail.contains("Transport") || err.detail.contains("Timeout")
+        checks.check("detail 含错误类别/URL", hasKind, detail: err.detail)
+        checks.check("cause 保留原始异常", err.cause.isSome(),
+            detail: err.cause.isSome().toString())
+        checks.check("包装后 kind=Transport", err.kind == ZlibErrorKind.Transport,
+            detail: err.kind.toString())
+    } finally {
+        client.close()
+    }
 }
 
 // ---------------------------------------------------------------------------

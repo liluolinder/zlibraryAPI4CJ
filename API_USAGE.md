@@ -1,6 +1,6 @@
 # zlibraryAPI4CJ API 使用说明
 
-> 版本对应：仓颉 1.2.0 / LinderHttp 2.0 / `output-type = "static"` / 库版本 `2.2.1`。
+> 版本对应：仓颉 1.2.0 / LinderHttp 2.0 / `output-type = "static"` / 库版本 `2.2.2`。
 >
 > 本文件是**面向调用方**的完整使用手册：装依赖、建客户端、拿凭证、探测站点、
 > 处理错误，然后逐个接口查参数与返回类型。
@@ -1049,7 +1049,7 @@ if (err.kind == ZlibErrorKind.NotFound) {
 | `serverMessage` | `String` | 服务端返回的 `error` / `msg` 原文；非业务错误时为空 |
 | `status` | `UInt16` | 触发错误时的 HTTP 状态码；未知为 0 |
 | `cause` | `?Exception` | 被包装的原始异常（`HttpError` / stdx 异常 / 文件系统异常）；排查底层细节用 |
-| `detail` | `String` | 人类可读描述（已带类别前缀） |
+| `detail` | `String` | 人类可读描述（已带类别前缀；底层异常被包装时内含 `HttpError.describe()` 的类别/URL/重试次数，`StatusError` 还带状态码与响应体开头） |
 | `isUnauthorized` | `Bool` | 是否未登录 |
 | `isRetryable` | `Bool` | 是否值得重试（等价于 `kind.isRetryable`） |
 

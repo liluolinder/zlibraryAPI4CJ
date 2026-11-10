@@ -1,6 +1,7 @@
 package zlibraryAPI4CJ.core
 
 import std.fs.*
+import linderHttp.*
 
 /**
  * Z-Library 调用错误的类别。
@@ -187,18 +188,38 @@ public class ZlibError <: Exception {
      * - 文件系统异常 → `Io`；
      * - 其它（LinderHttp `HttpError`、stdx 的 TLS/读写异常）→ `Transport`。
      *
+     * `detail` 的文本优先用 `HttpError.describe()`：它比 `message` 信息量大得多——
+     * 带错误类别、请求 URL、实际重试次数；`StatusError` 还带状态码与响应体开头。
+     * 例如 `Connect [https://x/eapi/...] attempts=2: Failed to resolve address`。
+     *
      * 客户端在所有公开边界调用它，保证调用方只需 `catch (err: ZlibError)`。
      */
     public static func wrapUnhandled(path: String, err: Exception): ZlibError {
-        let text = if (err.message.isEmpty()) {
-            "底层异常（无消息）"
-        } else {
-            "底层请求失败：${err.message}"
-        }
+        let text = describeUnhandled(err)
         if (err is FSException) {
             ZlibError.io(path, text, cause: Some(err))
         } else {
             ZlibError.transport(path, text, cause: Some(err))
+        }
+    }
+
+    /** 生成包装后的描述文本；`HttpError` 用 `describe()`（含类别/URL/重试次数）。 */
+    private static func describeUnhandled(err: Exception): String {
+        match (err) {
+            case http: HttpError => httpDescription(http)
+            case _ => unhandledMessage(err)
+        }
+    }
+
+    private static func httpDescription(err: HttpError): String {
+        "底层请求失败：${err.describe()}"
+    }
+
+    private static func unhandledMessage(err: Exception): String {
+        if (err.message.isEmpty()) {
+            "底层异常（无消息）"
+        } else {
+            "底层请求失败：${err.message}"
         }
     }
 

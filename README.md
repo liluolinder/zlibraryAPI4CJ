@@ -306,7 +306,7 @@ zlibraryAPI4CJ/
 cd C:\Project\Cangjie\zlibraryAPI4CJ
 
 cjpm build                       # 构建静态库
-cjpm test --no-progress          # 单元测试（139 个，全部离线，不联网）
+cjpm test --no-progress          # 单元测试（141 个，全部离线，不联网）
 
 cd doccheck
 cjpm build                       # 文档示例编译校验（API_USAGE.md 的全部示例）

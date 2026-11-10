@@ -570,7 +570,7 @@ cjpm --version; cjc --version
 # 2) 构建
 cd C:\Project\Cangjie\zlibraryAPI4CJ; cjpm build
 
-# 3) 单测（离线；当前基线 TOTAL 139 / PASSED 139 / FAILED 0）
+# 3) 单测（离线；当前基线 TOTAL 141 / PASSED 141 / FAILED 0）
 cjpm test --no-progress
 
 # 4) 预检（每个新文件）
@@ -594,7 +594,7 @@ git show af70e1e:src/common/commons.cj
 | 检查 | 命令 | 结果 |
 | --- | --- | --- |
 | 静态库构建 | `cjpm build` | success |
-| 离线单测 | `cjpm test --no-progress` | TOTAL 139 / PASSED 139 / FAILED 0 |
+| 离线单测 | `cjpm test --no-progress` | TOTAL 141 / PASSED 141 / FAILED 0 |
 | 文档示例编译 | `cd doccheck && cjpm build` | success（并可直接运行 `target\release\bin\main.exe`） |
 | 联网集成测试 | `cd integration && cjpm run` | 36 passed / 0 failed，exit 0（2026-11-10，zh.eva101.ru） |
 | 新 `.cj` 文件预检 | `check_cangjie_closure.py` | `doccheck/src/main.cj` ok, exit 0 |
@@ -610,7 +610,7 @@ git show af70e1e:src/common/commons.cj
 
 | 检查 | 命令 | 结果 |
 | --- | --- | --- |
-| 离线单测 | `cjpm test --no-progress` | 139 passed / 0 failed |
+| 离线单测 | `cjpm test --no-progress` | 141 passed / 0 failed |
 | 联网集成（基础） | `cd integration && cjpm run` | 36 passed / 0 failed，exit 0 |
 | 联网集成（登录后链路） | `ZLIB_TEST_ONLY_AUTH=1` + `ZLIB_TEST_EMAIL/PASSWORD` | 16 passed / 0 failed（含真实下载 723637 字节） |
 | 联网集成（完整一次） | 带账号密码跑全量 | 50 passed / 0 failed，exit 0 |
@@ -750,3 +750,19 @@ store.store(sitesValue.current().url, headers.toArray())
 - 实测 `zh.eva101.ru` 真实账号：**11/11 通过**（修复前「普通请求后仍生效」失败）；
 - 离线单测新增 `StartupCredentialTest`（4 个 case），断言凭证被写进
   Cookie 存储（`http.cookies().headerFor(...)` 含 `remix_userid`）。
+### 18.5 补充（2.2.2）：底层 `detail` 用 `HttpError.describe()`
+
+`wrapUnhandled` 包装 `HttpError` 时，`detail` 的文本改用 `describe()`，
+比 `message` 多出：错误类别、请求 URL、LinderHttp 实际重试次数；
+`StatusError` 还带 HTTP 状态码与响应体开头。
+
+实测（死域名请求 `/eapi/user/profile`）：
+
+```
+[Transport] 底层请求失败：Protocol [https://definitely-dead.invalid/eapi/user/profile] attempts=3: Failed to resolve address definitely-dead.invalid.
+```
+
+- 普通日志打 `err.detail` 就能看到足够信息，不必再取 `cause`；
+- 需要原始 `HttpError` 的 `kind/url/attempts` 字段时，`err.cause` 仍在；
+- 集成测试新增 `ZLIB_TEST_STAGE=httpdetail` 现场验证这段文本（4/4 通过）；
+- 单测新增 `testWrappedHttpErrorDetailUsesDescribe` / `testWrappedStatusErrorDetailHasStatusAndBody`。
