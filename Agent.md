@@ -22,8 +22,9 @@
 - 语言 / 编译器：仓颉 **1.2.0**（`cjc` / `cjpm`），宿主平台 `x86_64-w64-mingw32`
 - HTTP：[LinderHttp](https://gitcode.com/LiquidStudio/LinderHttp) 2.0（本地 `path` 依赖）
 - JSON：`stdx.encoding.json`（**手动容错解码，不用宏**）
-- 版本：`2.1.0`（`2.0.0` = 按 bbapi 模式重写的第二版；`2.1.0` 增加站点池 /
-  种子站换站 / 请求自动重试，见 §5.3；第一版见 git 历史）
+- 版本：`2.2.0`（`2.0.0` = 按 bbapi 模式重写的第二版；`2.1.0` 增加站点池 /
+  种子站换站 / 请求自动重试；`2.2.0` 统一异常类型——对外只抛 `ZlibError`，
+  `HttpError`/stdx 异常/文件系统异常都包装进 `cause`，见 §5.3）
 
 **静态库不能有 `main`**。可运行验证放在独立消费工程里
 （本仓库内的 `doccheck/` 就是这样的消费工程，见第 11 节）。
@@ -131,8 +132,9 @@ zlibraryAPI4CJ (root: 只做 public import core.* 与 model.*)
 2. **`None` 语义优先于异常。**
    - 「本来可能没有数据」→ 返回 `?T` 或空集合（`BookPage.first()`、`readOptionalString`）；
    - 「业务失败」→ 抛 `ZlibError`（`success=0`、未登录、书不存在）；
-   - 「传输失败」→ 让 LinderHttp 的 `HttpError` 原样抛出，**不要**在这里吞掉。
-   这两类异常是分开的，调用方可以分别 `catch`。
+   - 「传输失败」→ 在本层（`execute`）参与重试；退出 `execute` 前统一包装成
+     `ZlibError`（原始 `HttpError` 在 `cause`），**对外只暴露 `ZlibError`**。
+    调用方只需要一个 `catch (err: ZlibError)`。
 
 3. **列表分页封装成 `BookPage` 而不是裸数组。**
    `BookPage` 带 `pagination`、`hasMore()`、`nextPage()`、`first()`；
@@ -227,7 +229,9 @@ Z-Library 的字段类型会漂移（同一字段可能是数字或字符串、�
 
 非 JSON 响应（风控页、登录页、空响应）→ `ZlibErrorKind.BadResponse`，
 错误消息里只放**截断后的**响应片段（`truncateBytesSafe`），不要把整页 HTML 塞进异常。
-HTTP 层失败（DNS / TLS / 超时 / 池满）由 LinderHttp 抛 `HttpError`，不要在这里包一层。
+HTTP 层失败（DNS / TLS / 超时 / 池满）在 `execute` 里参与重试，
+最终由 `ZlibError.wrapUnhandled` 统一包装成 `ZlibError(Transport)`（原始 `HttpError` 在 `cause`），
+不要在这里另造异常类型。
 
 ### 5.3 站点管理与自动重试（2.1.0）
 
@@ -237,10 +241,10 @@ HTTP 层失败（DNS / TLS / 超时 / 池满）由 LinderHttp 抛 `HttpError`，
 
 | 情况 | 行为 |
 | --- | --- |
-| `HttpError`（传输层） | 按 `config.maxAttempts` 重试；**同样会先换站再重试**（DNS 失败是最常见换站触发点） |
+| 底层 `HttpError`（传输层） | 按 `config.maxAttempts` 重试；**同样会先换站再重试**（DNS 失败是最常见换站触发点）；对外被包装成 `ZlibError(Transport)` |
 | `ZlibError(Transport/BadResponse/Forbidden)` | 同上（`shouldSwitchSite` 判定） |
 | `ZlibError(ApiFailure/NotLoggedIn/NotFound/Closed)` | **不重试**，原样抛出 |
-| `download/fetchBytes` | 只重试 `HttpError`，**不换站**（下载链接是个人域名，换站无意义） |
+| `download/fetchBytes` | 只重试传输异常，**不换站**（下载链接是个人域名，换站无意义） |
 
 换站细节：
 
@@ -251,7 +255,7 @@ HTTP 层失败（DNS / TLS / 超时 / 池满）由 LinderHttp 抛 `HttpError`，
 - **冷却窗口**：`ZlibSites.beginRefresh()` 默认 30 秒一次，避免失败风暴打爆种子站；
 - 每次换站最多探测 `planSiteRefresh(maxCandidates: 4)` 个候选、每个 5 秒超时，
   避免一次换站把请求卡几分钟（实测一次换站约 20~55 秒，取决于被墙域名数量）；
-- 全部失败抛**最后一次原始异常**（`HttpError` 还是 `HttpError`，`ZlibError` 还是 `ZlibError`）；
+- 全部失败**统一抛 `ZlibError`**（非 `ZlibError` 的底层异常由 `wrapUnhandled` 包装，原始异常在 `cause`）；
 - 新增接口无需关心重试：只要走 `client.getXxx/postXxx` 就自动具备该能力。
 - **未包装的底层异常也会重试**：实测 LinderHttp 偶尔把 stdx 的 TLS/读写异常
   直接漏到外层（不是 `HttpError`），`execute` 用兜底 `catch (err: Exception)`
@@ -302,7 +306,7 @@ cjpm build
 
 ```powershell
 cd C:\Project\Cangjie\zlibraryAPI4CJ
-cjpm test --no-progress                       # 全部子包（当前应为 TOTAL 131 / PASSED 131）
+cjpm test --no-progress                       # 全部子包（当前应为 TOTAL 135 / PASSED 135）
 cjpm test --no-progress src\core src\model    # 只跑部分包（仍会先编译整个模块）
 ```
 
@@ -401,8 +405,10 @@ cjpm run
 
 - 2.1.0 新增站点池与请求自动重试（`ZlibSites` / 种子站换站），
   2026-11-10 在 `zh.eva101.ru` 实测 `integration/` 36/36 通过；
+- 2.2.0 统一异常类型：对外只抛 `ZlibError`，`HttpError`/stdx/文件系统异常包装进
+  `cause`，调用方一个 catch 管全部（见 §5.3、`API_USAGE.md` 第 6 章）；
 - 七个业务子包全部完成（`core` / `model` / `login` / `book` / `search` / `user` / `info`），
-  每个包都有离线单测；`cjpm test --no-progress` 当前为 **TOTAL 131 / PASSED 131 / FAILED 0**。
+  每个包都有离线单测；`cjpm test --no-progress` 当前为 **TOTAL 135 / PASSED 135 / FAILED 0**。
 - `doccheck/` 已建立，`cd doccheck && cjpm build` 通过；`API_USAGE.md`
   的每个示例在 `doccheck/src/main.cj` 里都有一个对应函数。
 - 未覆盖的 eapi 能力：`/user/donations` 的形状不稳定（返回原始 JSON）；

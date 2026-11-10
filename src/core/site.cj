@@ -579,5 +579,6 @@ internal func shouldSwitchSite(kind: ZlibErrorKind): Bool {
         case NotLoggedIn => return false
         case NotFound => return false
         case Closed => return false
+        case Io => return false
     }
 }

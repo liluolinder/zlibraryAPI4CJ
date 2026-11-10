@@ -26,7 +26,7 @@
 | 调用形态 | `client.search(...)`、`book.getDownloadInfo(cookie: c)`——方法散落在各个类上 | 全部 `public static func`，**第一个参数永远是 `ZlibClient`** |
 | 身份传递 | 每个方法多一个 `cookie: String` 参数 | 凭证挂在客户端上，用 `withCredential` 派生 |
 | 站点地址 | 全局可变变量 `zlibBaseUrl` / `zlibEAPI` + `changeUrl()` | `ZlibHost` 值对象 + `client.withBaseUrl()` / `resolveZlibHost()` |
-| 失败表示 | 每个响应带 `success: UInt8`，调用方自己判断 | 业务失败**抛 `ZlibError`**；传输失败抛 `HttpError` |
+| 失败表示 | 每个响应带 `success: UInt8`，调用方自己判断 | 统一**抛 `ZlibError`**（2.2.0 起传输/IO 异常也包装进来，原始异常在 `cause`） |
 | 模型 | 各 `dataModel/*.cj` 里的类，**模型自己发 HTTP** | `model` 子包只做解码与派生，**不发请求** |
 | 解码 | `Serializable.deserialize(DataModel)` + `strOr/u64Or` 兜底 | `stdx.encoding.json` + `readString/readInt/...` 宽松读取 |
 | 数值类型 | `UInt64` | `Int64`（与服务端 JSON 数值语义一致，便于算差值） |
@@ -327,7 +327,7 @@ match (resolveZlibHost()) {
    `todayDownloadNum` → `downloadsToday`；`downloadLimit` → `downloadsLimit`；
    `fileName` → `fileName()`。
 6. **改错误处理**：删 `if (success == 1)`，改成 `try/catch (ZlibError)`，
-   必要时再 `catch (HttpError)`。
+   必要时看 `err.cause`（2.2.0 起不再抛 `HttpError`）。
 7. **改下载**：拆成 `BookApi.file` + `BookApi.download` 两（或一步 `downloadBook`）。
 8. **跑编译**：`cjpm build`；对文档示例再跑 `cd doccheck && cjpm build`。
 

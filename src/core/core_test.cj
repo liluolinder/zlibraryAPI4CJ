@@ -3,6 +3,7 @@ package zlibraryAPI4CJ.core
 import std.collection.*
 import std.fs.*
 import stdx.encoding.json.*
+import linderHttp.*
 
 /**
  * core 层单元测试。
@@ -817,6 +818,67 @@ class RetryExecutionTest {
         }
         @Expect(counter.value, 2)
         client.close()
+    }
+}
+
+/**
+ * 统一异常类型：调用方只需要 `catch (err: ZlibError)`。
+ *
+ * 网络层（HttpError / stdx 异常）与文件系统异常都必须在客户端边界被包装成
+ * `ZlibError`，原始异常保留在 `cause`。
+ */
+@Test
+class UnifiedErrorTest {
+    @TestCase
+    func testUnhandledExceptionBecomesZlibError(): Unit {
+        let client = ZlibClient.create(baseUrl: "https://a.com")
+        var kind: ?ZlibErrorKind = None
+        var hasCause = false
+        try {
+            client.execute<Int64>({ host => throw Exception("tls boom") },
+                refreshOnFailure: true)
+        } catch (err: ZlibError) {
+            kind = Some(err.kind)
+            hasCause = err.cause.isSome()
+        }
+        @Expect(kind.isSome(), true)
+        // 非 FS 异常一律按传输层归类
+        @Expect(kind.getOrThrow() == ZlibErrorKind.Transport, true)
+        @Expect(hasCause, true)
+        client.close()
+    }
+
+    @TestCase
+    func testHttpErrorIsWrappedIntoSingleType(): Unit {
+        let client = ZlibClient.create(baseUrl: "https://a.com")
+        var wrapped = false
+        try {
+            client.execute<Int64>({ host =>
+                throw HttpError(ErrorKind.Transport, "tls boom")
+            }, refreshOnFailure: true)
+        } catch (err: ZlibError) {
+            wrapped = err.kind == ZlibErrorKind.Transport && err.cause.isSome()
+        }
+        @Expect(wrapped, true)
+        client.close()
+    }
+
+    @TestCase
+    func testIoKind(): Unit {
+        let error = ZlibError.io("book/download", "磁盘写满")
+        @Expect(error.kind == ZlibErrorKind.Io, true)
+        @Expect(error.kind.code, 8)
+        @Expect(error.isRetryable, false)
+        @Expect(error.cause.isNone(), true)
+        @Expect(error.kind.toString(), "Io")
+    }
+
+    @TestCase
+    func testWrapUnhandledKeepsPath(): Unit {
+        let wrapped = ZlibError.wrapUnhandled("/book/1/x", Exception("boom"))
+        @Expect(wrapped.path, "/book/1/x")
+        @Expect(wrapped.kind == ZlibErrorKind.Transport, true)
+        @Expect(wrapped.cause.isSome(), true)
     }
 }
 

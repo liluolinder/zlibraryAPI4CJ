@@ -9,8 +9,9 @@
  * 2. **站点地址**（`host.cj`）：Z-Library 没有稳定的官方域名，必须允许
  *    运行期指定与探测；`resolveZlibHost` 会按候选列表逐个 HEAD 探测。
  * 3. **响应信封与错误**（`envelope.cj` / `error.cj`）：eapi 统一返回
- *    `{"success": 1, ...}` / `{"success": 0, "error": "..."}`；业务失败统一
- *    抛 `ZlibError`，HTTP 层失败仍由 LinderHttp 的 `HttpError` 抛出，两者可分别捕获。
+ *    `{"success": 1, ...}` / `{"success": 0, "error": "..."}`；业务失败抛
+ *    `ZlibError`，传输层/文件系统异常也会在客户端边界被统一包装成
+ *    `ZlibError`（原始异常在 `cause`），调用方只需 `catch (err: ZlibError)`。
  * 4. **容错读取与编码**（`envelope.cj` 的 `readXxx`、`query.cj`、`text.cj`）：
  *    Z-Library 的字段类型并不稳定（同一字段可能给数字或字符串、可选字段会缺），
  *    所以模型解码一律走宽松读取，单条脏数据不能拖垮整页结果。

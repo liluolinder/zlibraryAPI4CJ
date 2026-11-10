@@ -287,6 +287,8 @@ func doc6_2(): Unit {
     println("${error.kind} ${error.kind.code} ${error.kind.isRetryable}")
     println("${error.path} ${error.serverMessage} ${error.status} ${error.detail}")
     println("${error.isUnauthorized} ${error.isRetryable}")
+    // 底层原始异常（网络层异常被包装后仍可取到，排查用）
+    println("has cause=${error.cause.isSome()}")
 
     // 静态构造
     let custom = ZlibError(ZlibErrorKind.BadResponse, "自定义错误", path: "/x",
@@ -297,6 +299,7 @@ func doc6_2(): Unit {
     println(ZlibError.notLoggedIn("/x").isUnauthorized)
     println(ZlibError.closed().kind)
     println(ZlibError.transport("/x", "tls").kind)
+    println(ZlibError.io("book/download", "磁盘写满").kind)
 }
 
 func doc6_3(client: ZlibClient): Unit {
@@ -304,17 +307,21 @@ func doc6_3(client: ZlibClient): Unit {
         let book = BookApi.info(client, 123456, "abcdef123456")
         println(book.title)
     } catch (err: ZlibError) {
+        // 只需要一个 catch：网络层异常（HttpError / stdx TLS 异常）也已被
+        // 统一包装成 ZlibError，原始异常在 err.cause 里。
         match (err.kind) {
             case ZlibErrorKind.NotLoggedIn => println("请先登录：${err.detail}")
             case ZlibErrorKind.NotFound => println("资源不存在：${err.serverMessage}")
             case ZlibErrorKind.Forbidden => println("被拒绝（可能需要个人域名）")
             case ZlibErrorKind.Transport => println("网络/域名问题，考虑换镜像")
+            case ZlibErrorKind.Io => println("本地文件错误：${err.detail}")
             case ZlibErrorKind.Closed => println("客户端已关闭")
             case _ => println(err.detail)
         }
-    } catch (err: HttpError) {
-        // 传输层：DNS / TLS / 超时 / 连接池
-        println("${err.kind} url=${err.url} attempts=${err.attempts} retryable=${err.isRetryable()}")
+        // 需要排查底层网络/TLS 细节时才看 cause
+        if (let Some(cause) <- err.cause) {
+            println("底层异常：${cause}")
+        }
     }
 }
 

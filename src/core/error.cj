@@ -1,11 +1,14 @@
 package zlibraryAPI4CJ.core
 
+import std.fs.*
+
 /**
  * Z-Library 调用错误的类别。
  *
- * 与 HTTP 层错误分开：LinderHttp 的 `HttpError` 表示「连不上 / TLS 失败 /
- * 超时」这类传输问题；`ZlibError` 表示「HTTP 通了，但 eapi 返回 success=0，
- * 或者服务端返回了非 JSON 的风控页」。调用方可以分别 `catch` 两种异常。
+ * **对外只有一种异常**：`ZlibError`。LinderHttp 的 `HttpError`、stdx 的 TLS/读写
+ * 异常、文件系统异常，都会在客户端/接口边界被统一包装成 `ZlibError`
+ * （原始异常放在 `ZlibError.cause` 里，需要排查时可取），
+ * 所以调用方只需要 `catch (err: ZlibError)` 一个分支。
  *
  * 之所以做成枚举而不是字符串：调用方通常需要按类别决定行为
  * （未登录 → 引导登录；域名失效 → 换镜像；服务端错误 → 重试）。
@@ -25,6 +28,8 @@ public enum ZlibErrorKind <: ToString & Equatable<ZlibErrorKind> {
     | Forbidden
     /** 客户端已经 `close()` 仍继续使用。 */
     | Closed
+    /** 本地文件系统错误（下载目录不可写、磁盘满等）。 */
+    | Io
 
     /** 稳定数值码（便于日志检索与相等比较）。 */
     public prop code: Int64 {
@@ -37,6 +42,7 @@ public enum ZlibErrorKind <: ToString & Equatable<ZlibErrorKind> {
                 case NotFound => 5
                 case Forbidden => 6
                 case Closed => 7
+                case Io => 8
             }
         }
     }
@@ -59,7 +65,8 @@ public enum ZlibErrorKind <: ToString & Equatable<ZlibErrorKind> {
             "NotLoggedIn",
             "NotFound",
             "Forbidden",
-            "Closed"
+            "Closed",
+            "Io"
         ]
         names[code - 1]
     }
@@ -95,16 +102,23 @@ public class ZlibError <: Exception {
     public let serverMessage: String
     /** 触发错误时的 HTTP 状态码；未知为 0。 */
     public let status: UInt16
+    /**
+     * 被包装的原始异常（`HttpError` / stdx 异常 / 文件系统异常）。
+     *
+     * 绝大多数调用不需要看它；只有排查底层网络/TLS 细节时才有用。
+     */
+    public let cause: ?Exception
     /** 人类可读的错误描述（已带类别前缀）。 */
     public let detail: String
 
     public init(kind: ZlibErrorKind, message: String, path!: String = "",
-        serverMessage!: String = "", status!: UInt16 = 0) {
+        serverMessage!: String = "", status!: UInt16 = 0, cause!: ?Exception = None) {
         super("[${kind}] ${message}")
         this.kind = kind
         this.path = path
         this.serverMessage = serverMessage
         this.status = status
+        this.cause = cause
         this.detail = "[${kind}] ${message}"
     }
 
@@ -155,9 +169,37 @@ public class ZlibError <: Exception {
         ZlibError(ZlibErrorKind.Closed, "ZlibClient 已关闭")
     }
 
-    /** 把 LinderHttp 的传输层异常包装成 `Transport`。 */
-    public static func transport(path: String, detail: String): ZlibError {
-        ZlibError(ZlibErrorKind.Transport, detail, path: path)
+    /** 把传输层失败包装成 `Transport`（可带原始异常）。 */
+    public static func transport(path: String, detail: String,
+        cause!: ?Exception = None): ZlibError {
+        ZlibError(ZlibErrorKind.Transport, detail, path: path, cause: cause)
+    }
+
+    /** 把本地文件系统失败包装成 `Io`。 */
+    public static func io(path: String, detail: String,
+        cause!: ?Exception = None): ZlibError {
+        ZlibError(ZlibErrorKind.Io, detail, path: path, cause: cause)
+    }
+
+    /**
+     * 兜底包装：任何非 `ZlibError` 的异常都转成 `ZlibError`。
+     *
+     * - 文件系统异常 → `Io`；
+     * - 其它（LinderHttp `HttpError`、stdx 的 TLS/读写异常）→ `Transport`。
+     *
+     * 客户端在所有公开边界调用它，保证调用方只需 `catch (err: ZlibError)`。
+     */
+    public static func wrapUnhandled(path: String, err: Exception): ZlibError {
+        let text = if (err.message.isEmpty()) {
+            "底层异常（无消息）"
+        } else {
+            "底层请求失败：${err.message}"
+        }
+        if (err is FSException) {
+            ZlibError.io(path, text, cause: Some(err))
+        } else {
+            ZlibError.transport(path, text, cause: Some(err))
+        }
     }
 
     /** 是否未登录。 */

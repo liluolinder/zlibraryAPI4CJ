@@ -32,7 +32,6 @@ import std.env.*
 import std.fs.*
 import std.time.*
 import stdx.encoding.json.*
-import linderHttp.*
 import zlibraryAPI4CJ.*
 import zlibraryAPI4CJ.login.*
 import zlibraryAPI4CJ.book.*
@@ -95,11 +94,17 @@ main(): Int64 {
         checkAuthenticatedFromEnv(checks)
         return checks.summary()
     }
+    logStep("base: probe")
     checkProbe(checks)
+    logStep("base: search")
     checkSearch(checks)
+    logStep("base: book")
     checkBook(checks)
+    logStep("base: info")
     checkInfo(checks)
+    logStep("base: error-mapping")
     checkErrorMapping(checks)
+    logStep("base: auto-switch")
     checkAutoSwitch(checks)
     // 登录后链路：只有设置了 ZLIB_TEST_EMAIL / ZLIB_TEST_PASSWORD 才执行，
     // 避免把真实账号写进仓库（见 integration/README 说明）。
@@ -217,9 +222,6 @@ func checkAuthenticated(checks: Checks, email: String, password: String): Unit {
             "${client.credentialFromCookies().isLoggedIn}")
     } catch (err: ZlibError) {
         logStep("EXCEPTION ZlibError: ${err}")
-        checks.check("登录后链路", false, detail: err.toString())
-    } catch (err: Exception) {
-        logStep("EXCEPTION: ${err}")
         checks.check("登录后链路", false, detail: err.toString())
     } finally {
         logStep("checkAuthenticated end")
@@ -468,8 +470,6 @@ func checkSearch(checks: Checks): Unit {
         checks.check("search 第 2 页成功", page2.size() > 0, detail: "size=${page2.size()}")
     } catch (err: ZlibError) {
         checks.check("search 请求", false, detail: err.toString())
-    } catch (err: Exception) {
-        checks.check("search 请求", false, detail: err.toString())
     } finally {
         client.close()
     }
@@ -493,9 +493,11 @@ func checkBook(checks: Checks): Unit {
             detail: "${detail.hash} vs ${book.hash}")
         checks.check("book info 文件大小>0", detail.filesize > 0, detail: "${detail.filesize}")
 
+        logStep("book: similar")
         let similar = BookApi.similar(client, book.id, book.hash)
         checks.check("similar 非空", similar.size > 0, detail: "size=${similar.size}")
 
+        logStep("book: formats")
         let formats = BookApi.formats(client, book.id, book.hash)
         // 服务端对部分书确实返回空列表（2026-11-10 实测 17309781/625607 → books:[]），
         // 所以这里先验证「能正常解析」，非空时再校验每项字段。
@@ -515,6 +517,7 @@ func checkBook(checks: Checks): Unit {
                 detail: extensionSummary.trimAscii())
         }
         // 换一本已知有多格式版本的书，验证非空解析路径
+        logStep("book: known-formats")
         let knownFormats = BookApi.formats(client, 24126585, "217fd6")
         checks.check("已知书 formats 非空", knownFormats.size > 0,
             detail: "size=${knownFormats.size}")
@@ -527,6 +530,7 @@ func checkBook(checks: Checks): Unit {
         var caught = false
         var kind = ZlibErrorKind.Transport
         var message = ""
+        logStep("book: anonymous file()")
         try {
             let info = BookApi.file(client, book.id, book.hash)
             checks.check("匿名 file() 不应该成功", false, detail: info.fileName())
@@ -538,8 +542,6 @@ func checkBook(checks: Checks): Unit {
         checks.check("匿名 file() → NotLoggedIn", caught && kind == ZlibErrorKind.NotLoggedIn,
             detail: "kind=${kind} msg=${message}")
     } catch (err: ZlibError) {
-        checks.check("book 请求", false, detail: err.toString())
-    } catch (err: Exception) {
         checks.check("book 请求", false, detail: err.toString())
     } finally {
         client.close()
@@ -586,8 +588,6 @@ func checkInfo(checks: Checks): Unit {
         checks.check("info 站点书籍数>0", bookCount > 0, detail: "${bookCount} 本")
     } catch (err: ZlibError) {
         checks.check("info 请求", false, detail: err.toString())
-    } catch (err: Exception) {
-        checks.check("info 请求", false, detail: err.toString())
     } finally {
         client.close()
     }
@@ -626,7 +626,7 @@ func checkErrorMapping(checks: Checks): Unit {
         }
         checks.check("错误密码 → ApiFailure", loginCaught && loginKind == ZlibErrorKind.ApiFailure,
             detail: loginMessage)
-    } catch (err: Exception) {
+    } catch (err: ZlibError) {
         checks.check("错误映射检查", false, detail: err.toString())
     } finally {
         client.close()
@@ -665,12 +665,7 @@ func checkAutoSwitch(checks: Checks): Unit {
         let snapshot = client.sites.snapshot()
         checks.check("snapshot.currentUrl 同步", snapshot.currentUrl == DOMAIN,
             detail: snapshot.currentUrl)
-    } catch (err: HttpError) {
-        checks.check("自动换站", false,
-            detail: "HttpError kind=${err.kind} url=${err.url} attempts=${err.attempts} msg=${err.message}")
     } catch (err: ZlibError) {
-        checks.check("自动换站", false, detail: err.toString())
-    } catch (err: Exception) {
         checks.check("自动换站", false, detail: err.toString())
     } finally {
         client.close()

@@ -570,7 +570,7 @@ cjpm --version; cjc --version
 # 2) 构建
 cd C:\Project\Cangjie\zlibraryAPI4CJ; cjpm build
 
-# 3) 单测（离线；当前基线 TOTAL 131 / PASSED 131 / FAILED 0）
+# 3) 单测（离线；当前基线 TOTAL 135 / PASSED 135 / FAILED 0）
 cjpm test --no-progress
 
 # 4) 预检（每个新文件）
@@ -594,7 +594,7 @@ git show af70e1e:src/common/commons.cj
 | 检查 | 命令 | 结果 |
 | --- | --- | --- |
 | 静态库构建 | `cjpm build` | success |
-| 离线单测 | `cjpm test --no-progress` | TOTAL 131 / PASSED 131 / FAILED 0 |
+| 离线单测 | `cjpm test --no-progress` | TOTAL 135 / PASSED 135 / FAILED 0 |
 | 文档示例编译 | `cd doccheck && cjpm build` | success（并可直接运行 `target\release\bin\main.exe`） |
 | 联网集成测试 | `cd integration && cjpm run` | 36 passed / 0 failed，exit 0（2026-11-10，zh.eva101.ru） |
 | 新 `.cj` 文件预检 | `check_cangjie_closure.py` | `doccheck/src/main.cj` ok, exit 0 |
@@ -610,7 +610,7 @@ git show af70e1e:src/common/commons.cj
 
 | 检查 | 命令 | 结果 |
 | --- | --- | --- |
-| 离线单测 | `cjpm test --no-progress` | 131 passed / 0 failed |
+| 离线单测 | `cjpm test --no-progress` | 135 passed / 0 failed |
 | 联网集成（基础） | `cd integration && cjpm run` | 36 passed / 0 failed，exit 0 |
 | 联网集成（登录后链路） | `ZLIB_TEST_ONLY_AUTH=1` + `ZLIB_TEST_EMAIL/PASSWORD` | 16 passed / 0 failed（含真实下载 723637 字节） |
 | 联网集成（完整一次） | 带账号密码跑全量 | 50 passed / 0 failed，exit 0 |
@@ -637,7 +637,7 @@ git show af70e1e:src/common/commons.cj
 | 下载超过 30 秒读超时会 `read data timeout` | 首次下载失败 | 新增 `config.downloadTimeout`（默认 5 分钟），`download`/`fetchBytes` 使用它 |
 | `Directory.create(dir, recursive: true)` 对**已存在目录**抛 `FSException` | 下载到已存在目录时复现 | 新增内部 `ensureDirectory`（先 `exists` 再建，幂等），`BookApi.download` 改用它；补单测 |
 | LinderHttp 偶发把底层 stdx 异常直接漏到外层（如 `read response timeout and the connection is closed`） | 收藏请求偶发失败 | `execute` 增加兜底 `catch (Exception)`：按传输失败重试+换站；补单测 |
-| 登录 POST 偶发进程直接崩溃：exit -1，事件日志 `0xc0000374`（ntdll 堆损坏） | 5~10 次里约 2 次；同机另一项目也复现 | 判断为底层 stdx/TLS 原生问题，非本库逻辑；集成测试用进程级重试/分段复现 |
+| 进程偶发直接崩溃：exit -1，事件日志 `0xc0000374`（ntdll 堆损坏） | 2026-11-10 登录 POST 约 2/10；2026-11-11 做 2.2.0 验证时升高到连续 3~4 次（任意请求阶段，加 `logStep` 后确认崩溃点随机，不是某一步/某段新代码）；同机另一项目也复现 | 判断为底层 stdx/TLS 原生问题，非本库逻辑；集成测试用进程级重试/分段复现 |
 
 ### 16.3 踩坑修复（本轮联调直接改出的代码）
 
@@ -656,3 +656,39 @@ git show af70e1e:src/common/commons.cj
   只断言了「不增加」；
 - 注册/找回密码/第三方 token 登录：会触发真实邮件/账号副作用，未测；
 - `/user/donations`、`/info/plans` 等形状不稳定接口：只保证原始 JSON 透传。
+---
+
+## 17. 统一异常类型（2.2.0）
+
+### 17.1 决策
+
+旧行为：调用方要写两个（甚至三个）`catch`——`ZlibError`、`HttpError`、兜底 `Exception`。
+bbapi 也是分开的（`BiliError` 与 `HttpError` 各管一层），但用户明确要求
+「一个 catch 管理所有」，所以 2.2.0 改为：**公开 API 只抛 `ZlibError`**。
+
+- `execute` 内部仍区分 `ZlibError` / `HttpError` / 未包装异常来做重试与换站决策；
+- 退出 `execute` 前统一包装：
+  - `FSException` → `ZlibError(Io)`
+  - 其它非 `ZlibError`（`HttpError`、stdx TLS/读写异常）→ `ZlibError(Transport)`
+  - 原始异常放进新增的 `ZlibError.cause`
+- `ZlibClient.create*`（构造 HttpClient）与 `BookApi.download`（建目录/写盘）也在边界包装；
+- 新增 `ZlibErrorKind.Io`（code=8，`isRetryable=false`）、`ZlibError.io(...)`、
+  `ZlibError.wrapUnhandled(...)`；
+- 破坏性变更：原来 `catch (err: HttpError)` 不再命中，改为 `catch (err: ZlibError)`，
+  需要底层细节时看 `err.cause`。
+
+### 17.2 实现要点（踩坑）
+
+- 重试循环里**重试耗尽不能直接 `throw err`**：原实现对 `HttpError`/未包装异常在最后一次
+  `throw err`，会绕过循环后的包装逻辑（单测第一次就抓到了）；
+  改为 `break` 出循环，循环结束后统一包装；
+- `ZlibErrorKind` 新增成员后，`site.cj` 的 `shouldSwitchSite` 是穷尽匹配，必须补 `Io`；
+- 单测 `UnifiedErrorTest`：异常包装成 `Transport`、`HttpError` 包装、`Io` 工厂、
+  `wrapUnhandled` 保留 path；
+- 文档全部改为单 catch：README、`API_USAGE.md` 第 6 章、`Agent.md` §5.3、doccheck 示例。
+
+### 17.3 兼容性
+
+- 源码兼容：`catch (err: ZlibError)` 不受影响；`ZlibError` 构造器新增默认参数 `cause!`；
+- 行为兼容：重试/换站规则不变，只是最终抛出的类型统一；
+- 依赖方若之前读 `HttpError.kind/url/attempts`，改为读 `err.cause`（`?Exception`）。

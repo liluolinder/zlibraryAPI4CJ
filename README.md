@@ -26,8 +26,9 @@
   `resolveZlibHost` / `probeSite` / `checkAccess` 手动探测入口。
 - **身份双通道**：同时发送 `remix-userid` / `remix-userkey` 请求头与
   `remix_userid` / `remix_userkey` Cookie，兼容不同版本服务端。
-- **错误分层**：HTTP 传输失败由 LinderHttp 抛 `HttpError`；业务失败抛 `ZlibError`
-  （`kind` + 原始服务端文案 + 路径），两类可分别捕获。
+- **统一异常（2.2.0）**：对外只抛 `ZlibError`——传输层 `HttpError`、stdx TLS/读写异常、
+  文件系统异常都在客户端边界被包装（原始异常在 `cause`），调用方一个 catch 管全部；
+  `kind` 区分未登录 / 域名失效 / 服务端业务失败 / 本地 IO。
 - **容错解码**：字段缺失、数字写字符串、布尔给 0/1 都不会让整页结果作废；
   单条脏数据自动跳过。
 - **分页封装**：列表接口返回 `BookPage`（`hasMore()` / `nextPage()` / `first()`），
@@ -222,22 +223,23 @@ let credential3 = ZlibCredential.of(123456, "xxxxxxxx")
 
 ```cangjie
 import zlibraryAPI4CJ.*
-import linderHttp.*
 
 try {
     let book = BookApi.info(client, 1, "hash")
     println(book.title)
 } catch (err: ZlibError) {
-    // 业务失败：success=0、未登录、书不存在、非 JSON 风控页、客户端已关闭
+    // 一个 catch 管所有错误：网络层也已被包装成 ZlibError
     match (err.kind) {
         case ZlibErrorKind.NotLoggedIn => println("需要登录")
         case ZlibErrorKind.NotFound => println("书不存在：${err.serverMessage}")
-        case ZlibErrorKind.Transport => println("换域名或重试：${err.detail}")
+        case ZlibErrorKind.Transport => println("网络/域名问题：${err.detail}")
+        case ZlibErrorKind.Io => println("本地文件错误：${err.detail}")
         case _ => println(err.detail)
     }
-} catch (err: HttpError) {
-    // 传输失败：DNS / TCP / TLS / 超时 / 连接池占满
-    println("${err.kind} ${err.url} attempts=${err.attempts}")
+    // 排查底层网络/TLS 时才看 cause（原始 HttpError）
+    if (let Some(cause) <- err.cause) {
+        println("底层异常：${cause}")
+    }
 }
 ```
 
@@ -302,7 +304,7 @@ zlibraryAPI4CJ/
 cd C:\Project\Cangjie\zlibraryAPI4CJ
 
 cjpm build                       # 构建静态库
-cjpm test --no-progress          # 单元测试（131 个，全部离线，不联网）
+cjpm test --no-progress          # 单元测试（135 个，全部离线，不联网）
 
 cd doccheck
 cjpm build                       # 文档示例编译校验（API_USAGE.md 的全部示例）

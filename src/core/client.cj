@@ -130,7 +130,14 @@ public class ZlibClient <: Resource & ToString {
         if (!config.httpProxy.isEmpty()) {
             builder.httpProxy(config.httpProxy)
         }
-        builder.build()
+        // 统一异常类型：构造 HttpClient 失败也包成 ZlibError
+        try {
+            builder.build()
+        } catch (err: ZlibError) {
+            throw err
+        } catch (err: Exception) {
+            throw ZlibError.wrapUnhandled("", err)
+        }
     }
 
     /** 当前凭证。 */
@@ -313,13 +320,15 @@ public class ZlibClient <: Resource & ToString {
     public func getRaw(path: String,
         query!: Array<(String, String)> = Array<(String, String)>()): String {
         ensureOpen()
-        execute<String>({ host => sendGet(host, path, query) }, refreshOnFailure: true)
+        execute<String>({ host => sendGet(host, path, query) }, refreshOnFailure: true,
+            path: path)
     }
 
     /** POST 表单并返回响应体文本（eapi 的写操作都是 urlencoded 表单）。 */
     public func postFormRaw(path: String, form: Array<(String, String)>): String {
         ensureOpen()
-        execute<String>({ host => sendPostForm(host, path, form) }, refreshOnFailure: true)
+        execute<String>({ host => sendPostForm(host, path, form) }, refreshOnFailure: true,
+            path: path)
     }
 
     /** GET 并解析信封（调用方自己决定怎么处理 `success`）。 */
@@ -328,7 +337,7 @@ public class ZlibClient <: Resource & ToString {
         ensureOpen()
         execute<ZlibEnvelope>({ host =>
             ZlibEnvelope.parse(sendGet(host, path, query), path: path)
-        }, refreshOnFailure: true)
+        }, refreshOnFailure: true, path: path)
     }
 
     /** POST 表单并解析信封。 */
@@ -337,7 +346,7 @@ public class ZlibClient <: Resource & ToString {
         ensureOpen()
         execute<ZlibEnvelope>({ host =>
             ZlibEnvelope.parse(sendPostForm(host, path, form), path: path)
-        }, refreshOnFailure: true)
+        }, refreshOnFailure: true, path: path)
     }
 
     /**
@@ -356,7 +365,7 @@ public class ZlibClient <: Resource & ToString {
                 case Some(obj) => decoder(obj)
                 case None => throw ZlibError.badResponse(path, "响应缺少 ${field} 对象")
             }
-        }, refreshOnFailure: true)
+        }, refreshOnFailure: true, path: path)
     }
 
     /** GET 并解出根上某个数组字段的强类型列表。 */
@@ -367,7 +376,7 @@ public class ZlibClient <: Resource & ToString {
             let root = ZlibEnvelope.parse(sendGet(host, path, query), path: path)
                 .unwrap(path: path)
             decodeEach<T>(arrayFieldOf(root, field)) { obj => decoder(obj) }
-        }, refreshOnFailure: true)
+        }, refreshOnFailure: true, path: path)
     }
 
     /** POST 表单并解出根上某个对象字段的强类型值（登录接口用）。 */
@@ -381,7 +390,7 @@ public class ZlibClient <: Resource & ToString {
                 case Some(obj) => decoder(obj)
                 case None => throw ZlibError.badResponse(path, "响应缺少 ${field} 对象")
             }
-        }, refreshOnFailure: true)
+        }, refreshOnFailure: true, path: path)
     }
 
     // ---------- 二进制 ----------
@@ -409,7 +418,7 @@ public class ZlibClient <: Resource & ToString {
                 throw ZlibError.httpStatus(url, response.status, preview)
             }
             response.saveTo(path, overwrite: overwrite)
-        }, refreshOnFailure: false)
+        }, refreshOnFailure: false, path: url)
     }
 
     /** 取一个绝对 URL 的字节内容（封面图等）。 */
@@ -424,7 +433,7 @@ public class ZlibClient <: Resource & ToString {
                 throw ZlibError.httpStatus(url, response.status, preview)
             }
             response.bytes()
-        }, refreshOnFailure: false)
+        }, refreshOnFailure: false, path: url)
     }
 
     // ---------- 重试与站点刷新 ----------
@@ -438,17 +447,21 @@ public class ZlibClient <: Resource & ToString {
     }
 
     /**
-     * 自动重试外壳。
+     * 重试外壳：所有请求/解码都经过这里。
      *
-     * - `ZlibError`：只有 `refreshOnFailure` 且错误类别属于「换站可能有用」
-     *   （连不上 / 非 JSON / 403）才重试；业务错误原样抛出；
-     * - `HttpError`（LinderHttp 传输层）：属于瞬时问题，按次数重试；
-     * - 每次重试前重新读 `sitesValue.current()`，所以换站立即生效。
+     * 重试判断（内部细节，调用方不需要关心）：
+     * - `ZlibError` 中可换站的类别（`Transport` / `BadResponse` / `Forbidden`）：
+     *   先换站再重试；其它类别立即抛；
+     * - `HttpError`（LinderHttp 传输层）与未包装的 stdx 异常：属于瞬时问题，
+     *   按次数重试（并换站）；
+     * - 文件系统异常（`FSException`）：本地问题，重试无意义，直接包成 `Io` 抛出。
      *
-     * 全部尝试失败时抛出**最后一次**的原始异常，调用方看到的仍是熟悉的
-     * `HttpError` / `ZlibError`，不会被包装成第三方异常类型。
+     * **对外统一异常类型**：全部尝试失败后，非 `ZlibError` 的原始异常会被
+     * 包装成 `ZlibError`（原始异常保留在 `cause`），所以调用方只需要
+     * `catch (err: ZlibError)` 一个分支。
      */
-    internal func execute<T>(operation: (ZlibHost) -> T, refreshOnFailure!: Bool): T {
+    internal func execute<T>(operation: (ZlibHost) -> T, refreshOnFailure!: Bool,
+        path!: String = ""): T {
         let attempts = attemptLimit()
         var attempt: Int64 = 1
         var lastError: ?Exception = None
@@ -464,16 +477,20 @@ public class ZlibClient <: Resource & ToString {
             } catch (err: HttpError) {
                 lastError = err
                 if (attempt >= attempts) {
-                    throw err
+                    break
                 }
             } catch (err: Exception) {
+                // 本地文件系统错误：重试没有意义，直接终止并归类为 Io
+                if (err is FSException) {
+                    throw ZlibError.wrapUnhandled(path, err)
+                }
                 // 兜底重试：LinderHttp 偶尔把底层 stdx 异常直接漏到外层
                 // （实测 "read response timeout and the connection is closed"），
                 // 这类本质仍是传输失败，按瞬时故障重试（并换站），
                 // 否则一次网络抖动就会让业务调用直接失败。
                 lastError = err
                 if (attempt >= attempts) {
-                    throw err
+                    break
                 }
             }
             attempt++
@@ -481,7 +498,11 @@ public class ZlibClient <: Resource & ToString {
                 tryRefreshSite()
             }
         }
-        throw lastError.getOrThrow()
+        let last = lastError.getOrThrow()
+        match (last) {
+            case known: ZlibError => throw known
+            case other => throw ZlibError.wrapUnhandled(path, other)
+        }
     }
 
     /** 失败后尝试换站（无种子站或处于冷却窗口时静默跳过）。 */

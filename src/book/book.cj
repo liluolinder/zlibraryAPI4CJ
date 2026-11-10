@@ -187,8 +187,15 @@ public class BookApi {
         if (!info.allowDownload) {
             throw ZlibError.apiFailure("book/download", "服务端标记该书不可下载（allowDownload=false）")
         }
-        ensureDirectory(dir)
-        client.download(info.downloadLink, dir.join(info.fileName()), overwrite: overwrite)
+        // 文件系统异常也统一包成 ZlibError（Io），调用方只需 catch 一种异常
+        try {
+            ensureDirectory(dir)
+            client.download(info.downloadLink, dir.join(info.fileName()), overwrite: overwrite)
+        } catch (err: ZlibError) {
+            throw err
+        } catch (err: Exception) {
+            throw ZlibError.wrapUnhandled("book/download", err)
+        }
     }
 
     /**
