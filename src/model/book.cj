@@ -199,12 +199,18 @@ public class BookInfo <: ToString {
 public class BookInfoBrief <: ToString {
     /** 图书 id。 */
     public var id: Int64 = 0
+    /** ISBN（部分书为空）。 */
+    public var isbn: String = ""
+    /** 图书页相对地址（如 `/book/xxx/yyy/title.html`）。 */
+    public var url: String = ""
     /** 书名。 */
     public var title: String = ""
     /** 作者。 */
     public var author: String = ""
     /** 封面图 URL。 */
     public var cover: String = ""
+    /** 封面懒加载用的 data 属性原文（服务端原样返回，一般用不到）。 */
+    public var coverData: String = ""
     /** 图书 hash。 */
     public var hash: String = ""
 
@@ -212,9 +218,12 @@ public class BookInfoBrief <: ToString {
     public static func fromJsonObject(obj: JsonObject): BookInfoBrief {
         let brief = BookInfoBrief()
         brief.id = readInt(obj, "id")
+        brief.isbn = readString(obj, "isbn")
+        brief.url = readString(obj, "url")
         brief.title = readString(obj, "title")
         brief.author = readString(obj, "author")
         brief.cover = readString(obj, "cover")
+        brief.coverData = readString(obj, "coverData")
         brief.hash = readString(obj, "hash")
         brief
     }
@@ -224,13 +233,90 @@ public class BookInfoBrief <: ToString {
         fromJsonObject(parseJsonObject(text, path: "book-brief"))
     }
 
-    /** 图书网页地址（规则同 `BookInfo.webpage`）。 */
+    /**
+     * 图书网页地址。
+     *
+     * 优先用服务端给的 `url`（实测 `most-popular` / `similar` / `recently`
+     * 都返回该字段，值是 `/book/{id}/{hash}/{slug}.html` 形式的相对地址或
+     * 绝对地址）；没有 `url` 时退回 `/book/{id}/{hash}`。
+     */
     public func webpage(baseUrl!: String = ZlibHost.DEFAULT_URL): String {
-        "${ZlibHost.of(baseUrl).url}/book/${id}/${hash}"
+        let host = ZlibHost.of(baseUrl).url
+        if (!url.isEmpty()) {
+            if (url.startsWith("http")) {
+                return url
+            }
+            if (url.startsWith("/")) {
+                return "${host}${url}"
+            }
+            return "${host}/${url}"
+        }
+        "${host}/book/${id}/${hash}"
     }
 
     public func toString(): String {
         "BookInfoBrief(${id}/${hash}, ${title})"
+    }
+}
+
+/**
+ * 可下载格式（`GET /book/{id}/{hash}/formats` 的 `books` 元素）。
+ *
+ * **2026-11-10 实测**（zh.eva101.ru）响应形如：
+ *
+ * ```json
+ * {"success":1,"books":[
+ *   {"id":35851393,"hash":"b4c3ae","extension":"azw3","filesize":5285744,"filesizeString":"5.04 MB"}
+ * ]}
+ * ```
+ *
+ * 即同一本书在不同版本/格式下各有自己的 `id` + `hash`，想下载指定格式时
+ * 用对应条目的 `id` + `hash` 调 `BookApi.file()`。
+ */
+public class BookFormat <: ToString {
+    /** 该格式版本的图书 id。 */
+    public var id: Int64 = 0
+    /** 该格式版本的 hash。 */
+    public var hash: String = ""
+    /** 扩展名（`pdf` / `epub` / `azw3` …，不含点）。 */
+    public var extension: String = ""
+    /** 文件大小（字节）。 */
+    public var filesize: Int64 = 0
+    /** 文件大小文本（如 `5.04 MB`）。 */
+    public var filesizeString: String = ""
+
+    /** 从 JSON 对象解码（容错）。 */
+    public static func fromJsonObject(obj: JsonObject): BookFormat {
+        let format = BookFormat()
+        format.id = readInt(obj, "id")
+        format.hash = readString(obj, "hash")
+        format.extension = readString(obj, "extension")
+        format.filesize = readInt(obj, "filesize")
+        format.filesizeString = readString(obj, "filesizeString")
+        format
+    }
+
+    /** 从 JSON 文本解码。 */
+    public static func fromJson(text: String): BookFormat {
+        fromJsonObject(parseJsonObject(text, path: "book-format"))
+    }
+
+    /** 大小文本：优先用服务端 `filesizeString`，否则按字节格式化。 */
+    public func sizeText(): String {
+        if (!filesizeString.isEmpty()) {
+            return filesizeString
+        }
+        if (filesize <= 0) {
+            return ""
+        }
+        if (filesize < 1024 * 1024) {
+            return "${filesize / 1024} KB"
+        }
+        "${filesize / (1024 * 1024)} MB"
+    }
+
+    public func toString(): String {
+        "BookFormat(${extension}, ${sizeText()})"
     }
 }
 

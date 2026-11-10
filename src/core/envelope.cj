@@ -81,7 +81,10 @@ public class ZlibEnvelope {
         if (!success) {
             let message = errorText
             let lower = message.toAsciiLower()
-            if (lower.contains("login") || lower.contains("log in")) {
+            // 服务端未登录文案：英文（旧版实测）与中文（zh 站点实测 2026-11-10：
+            // "登录到您的账户"）都要覆盖，否则调用方只能看到笼统的 ApiFailure。
+            if (lower.contains("login") || lower.contains("log in") ||
+                lower.contains("sign in") || message.contains("登录")) {
                 throw ZlibError(ZlibErrorKind.NotLoggedIn, message, path: path,
                     serverMessage: message)
             }

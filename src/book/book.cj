@@ -78,17 +78,23 @@ public class BookApi {
     }
 
     /**
-     * 获取可用格式。
+     * 获取可用下载格式。
      *
      * 接口：`GET /book/{id}/{hash}/formats`。
      *
-     * 返回的面板字段不稳定（不同账号/不同书差异很大），因此直接返回原始
-     * JSON 根对象，调用方按需读取（通常是 `formats` 数组）。需要强类型时
-     * 建议先用 `book.file()` 的 `extension` 判断目标格式是否可下载。
+     * **2026-11-10 实测响应**（zh.eva101.ru）：
+     * `{"success":1,"books":[{"id":...,"hash":"...","extension":"azw3",
+     * "filesize":...,"filesizeString":"5.04 MB"}, ...]}`。
+     *
+     * 注意每个格式版本都有**自己的 `id` + `hash`**：想下载指定格式时，
+     * 用该条目的 `id`/`hash` 再调 `BookApi.file()`，而不是原书的。
+     *
+     * @return 可用格式列表（按服务端顺序）；空列表表示没有可下载版本
      */
-    public static func formats(client: ZlibClient, id: Int64, hash: String): JsonObject {
-        let path = "/book/${id}/${hash}/formats"
-        client.getEnvelope(path).unwrap(path: path)
+    public static func formats(client: ZlibClient, id: Int64,
+        hash: String): ArrayList<BookFormat> {
+        client.getObjects("/book/${id}/${hash}/formats", "books",
+            { obj => BookFormat.fromJsonObject(obj) })
     }
 
     /**

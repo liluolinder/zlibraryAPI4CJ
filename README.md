@@ -10,6 +10,7 @@
 
 > 本库不是 Z-Library 官方项目。接口路径与字段来自社区逆向文档，
 > 域名与字段随时可能变化；使用前请阅读文末的[免责声明](#免责声明)。
+> 2026-11-10 已在 `https://zh.eva101.ru` 做过真实站点联调（`integration/` 36/36 通过）。
 
 ---
 
@@ -19,8 +20,9 @@
   依赖方向严格单向（`core ← model ← 业务子包`，业务子包互不 import）。
 - **连接复用**：一个 `ZlibClient` 只持有一个 `HttpClient`，连接池、Cookie、超时全共享；
   客户端不可变，`withCredential` / `withBaseUrl` 派生新客户端时共享连接池。
-- **站点地址是一等配置**：Z-Library 域名不稳定，内置候选镜像探测
-  （`resolveZlibHost` / `probeSite` / `checkAccess`），也可直接指定 `baseUrl`。
+- **站点自动恢复（2.1.0）**：自定义站优先 + 种子站兜底——自定义站失败时自动向
+  种子站查询最新域名、**覆盖自定义站**并用新地址重试请求；也保留
+  `resolveZlibHost` / `probeSite` / `checkAccess` 手动探测入口。
 - **身份双通道**：同时发送 `remix-userid` / `remix-userkey` 请求头与
   `remix_userid` / `remix_userkey` Cookie，兼容不同版本服务端。
 - **错误分层**：HTTP 传输失败由 LinderHttp 抛 `HttpError`；业务失败抛 `ZlibError`
@@ -80,8 +82,9 @@ import zlibraryAPI4CJ.*        // ZlibClient / ZlibCredential / ZlibError / 全�
 import zlibraryAPI4CJ.book.*   // BookApi
 
 main(): Int64 {
-    // 1. 建客户端。已知可用域名时直接传；不知道就先用 resolveZlibHost() 探测
-    let client = ZlibClient.create(baseUrl: "https://your-zlib-domain")
+    // 1. 建客户端：自定义站优先；配置 seeds 后，自定义站失败会自动换站并重试
+    let client = ZlibClient.create(baseUrl: "https://your-zlib-domain",
+        seeds: ["https://seed1.example"])
     try {
         // 2. 取图书详情（id + hash 是几乎所有图书接口的定位符）
         let book = BookApi.info(client, 123456, "abcdef123456")
@@ -132,6 +135,37 @@ main(): Int64 {
     0
 }
 ```
+
+### 站点自动换站与重试（2.1.0）
+
+```cangjie
+import zlibraryAPI4CJ.*
+import zlibraryAPI4CJ.search.*
+
+main(): Int64 {
+    // 自定义站优先；自定义站失败 -> 向种子站要新地址 -> 覆盖自定义站 -> 重试
+    let client = ZlibClient.create(
+        baseUrl: "https://your-zlib-domain",
+        seeds: ["https://seed1.example", "https://seed2.example"])
+    try {
+        // 任何接口失败都会自动走「换站 + 重试」（默认最多 3 次，30 秒冷却窗口）
+        let page = SearchApi.search(client, "Rust")
+        println("当前站点：${client.currentSiteUrl()}")
+        println("命中 ${page.pagination.totalItems} 条")
+    } finally {
+        // 换站后的当前地址可持久化，下次启动直接作为 baseUrl
+        println(client.sites.snapshot())
+        client.close()
+    }
+    0
+}
+```
+
+- 换站规则：只对「域名类错误」（连不上 / 非 JSON 风控页 / 403）换站重试；
+  未登录、书不存在等业务错误**不会**重试。
+- 关闭重试：`ZlibClientConfig.autoRetry = false`；调整次数：`maxAttempts`。
+- 手动急救：`client.refreshSite(force: true)`；手动切站：`client.setCustomSite(url)`。
+- 详细机制见 [`API_USAGE.md`](API_USAGE.md) 第 5 章。
 
 ### 登录
 
@@ -240,11 +274,14 @@ zlibraryAPI4CJ/
 ├── doccheck/                  # 文档示例编译校验工程（executable，path 依赖主工程）
 │   ├── cjpm.toml
 │   └── src/main.cj
+├── integration/               # 真实网络集成测试（executable，需联网；实测镜像见 src/main.cj）
+│   ├── cjpm.toml
+│   └── src/main.cj
 └── src/
     ├── zlibraryAPI4CJ.cj      # 根包：只做 public import core.* / model.*
-    ├── core/                  # 客户端、凭证、站点探测、信封、错误、编码、截断
+    ├── core/                  # 客户端、凭证、站点池、探测、信封、错误、编码、截断
     │   ├── core_pkg.cj  client.cj  credential.cj  host.cj
-    │   ├── envelope.cj  error.cj   query.cj      text.cj
+    │   ├── site.cj      envelope.cj  error.cj    query.cj  text.cj
     │   └── core_test.cj
     ├── model/                 # 共享数据模型
     │   ├── model_pkg.cj  book.cj  user.cj  download.cj  page.cj
@@ -264,10 +301,13 @@ zlibraryAPI4CJ/
 cd C:\Project\Cangjie\zlibraryAPI4CJ
 
 cjpm build                       # 构建静态库
-cjpm test --no-progress          # 单元测试（93 个，全部离线，不联网）
+cjpm test --no-progress          # 单元测试（129 个，全部离线，不联网）
 
 cd doccheck
 cjpm build                       # 文档示例编译校验（API_USAGE.md 的全部示例）
+
+cd ../integration
+cjpm run                         # 真实网络集成测试（2026-11-10 在 zh.eva101.ru 实测 36/36 通过）
 ```
 
 单元测试只覆盖「不联网就能证明」的部分（纯函数、固定 JSON 样本解码、参数构造）。
@@ -286,6 +326,7 @@ cjpm build                       # 文档示例编译校验（API_USAGE.md 的�
 | [`doc/feature_api.md`](doc/feature_api.md) | 从 v1 迁移的开发者 | 旧 API → 新 API 对照表、迁移步骤、注意事项 |
 | [`Agent.md`](Agent.md) | 接手本库的开发者 | 硬约束、子包依赖方向、API 设计约定、新增接口流程、排错表 |
 | [`MEMORY.md`](MEMORY.md) | 接手本库的开发者 | 旧版为何编译不过、域名/百分号/字段漂移等踩坑证据 |
+| [`integration/`](integration) | 维护者 / CI | 真实网络集成测试：接口可用性、错误映射、自动换站与重试（`cjpm run`） |
 
 ---
 

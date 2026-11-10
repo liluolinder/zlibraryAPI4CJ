@@ -22,7 +22,8 @@
 - 语言 / 编译器：仓颉 **1.2.0**（`cjc` / `cjpm`），宿主平台 `x86_64-w64-mingw32`
 - HTTP：[LinderHttp](https://gitcode.com/LiquidStudio/LinderHttp) 2.0（本地 `path` 依赖）
 - JSON：`stdx.encoding.json`（**手动容错解码，不用宏**）
-- 版本：`2.0.0`（对应按 bbapi 模式重写的第二版；第一版见 git 历史）
+- 版本：`2.1.0`（`2.0.0` = 按 bbapi 模式重写的第二版；`2.1.0` 增加站点池 /
+  种子站换站 / 请求自动重试，见 §5.3；第一版见 git 历史）
 
 **静态库不能有 `main`**。可运行验证放在独立消费工程里
 （本仓库内的 `doccheck/` 就是这样的消费工程，见第 11 节）。
@@ -77,7 +78,8 @@ zlibraryAPI4CJ (root: 只做 public import core.* 与 model.*)
 | 子包 | 文件 | 职责 |
 | --- | --- | --- |
 | `core` | `core_pkg.cj` | 包文档、常量 `ZLIB_API_PREFIX` / `ZLIB_DEFAULT_SITE_LANGUAGE` |
-| | `client.cj` | `ZlibClient`（请求 / 信封解包 / 派生 / 下载）、`ZlibClientConfig` |
+| | `client.cj` | `ZlibClient`（请求 / 信封解包 / 自动重试 / 派生 / 下载）、`ZlibClientConfig` |
+| | `site.cj` | `ZlibSites`（自定义站 + 种子站换站）、`ZlibSiteSnapshot`、`planSiteRefresh` / `fetchSeedDomains` / `extractDomainList` / `normalizeDomain` |
 | | `credential.cj` | `ZlibCredential`：`remix_userid` / `remix_userkey` / `siteLanguage` |
 | | `host.cj` | `ZlibHost`、`ZlibProbe`、`probeSite` / `checkAccess` / `canAccessZlib` / `resolveZlibHost` |
 | | `envelope.cj` | `ZlibEnvelope` + 宽松 JSON 读取（`readString` / `readInt` / `decodeEach` …） |
@@ -136,9 +138,12 @@ zlibraryAPI4CJ (root: 只做 public import core.* 与 model.*)
    `BookPage` 带 `pagination`、`hasMore()`、`nextPage()`、`first()`；
    只给数组会迫使每个调用方自己重新推一遍分页逻辑。
 
-4. **客户端不可变。** 凭证 / 站点地址 / 配置都不能原地改，
-   派生用 `withCredential` / `withBaseUrl` / `withHost`
+4. **客户端不可变，站点状态受控可变。** 凭证 / 配置 / 显式站点不能原地改，
+   派生用 `withCredential` / `withBaseUrl` / `withHost` / `withSites`
    （共享同一个底层 `HttpClient` 与连接池）。
+   例外是 `ZlibSites`：它用 `Mutex` 保护「当前自定义站 + 种子站列表」，
+   自动换站会 `adopt` 新地址（2.1.0 需求：失败后覆盖自定义站并自动重试）。
+   `withCredential` 派生的客户端**共享**同一份 `ZlibSites`，`withBaseUrl` 则派生独立副本。
    同一进程里同时需要游客态与登录态时，派生两个客户端即可干净隔离。
 
 5. **能复用就复用。**
@@ -224,6 +229,31 @@ Z-Library 的字段类型会漂移（同一字段可能是数字或字符串、�
 错误消息里只放**截断后的**响应片段（`truncateBytesSafe`），不要把整页 HTML 塞进异常。
 HTTP 层失败（DNS / TLS / 超时 / 池满）由 LinderHttp 抛 `HttpError`，不要在这里包一层。
 
+### 5.3 站点管理与自动重试（2.1.0）
+
+请求链路：业务 API → `client.getObject/getEnvelope/getRaw/...` →
+内部 `execute(operation)`（自动重试外壳）→ `sendGet/sendPostForm`。
+`execute` 的规则必须保持：
+
+| 情况 | 行为 |
+| --- | --- |
+| `HttpError`（传输层） | 按 `config.maxAttempts` 重试；**同样会先换站再重试**（DNS 失败是最常见换站触发点） |
+| `ZlibError(Transport/BadResponse/Forbidden)` | 同上（`shouldSwitchSite` 判定） |
+| `ZlibError(ApiFailure/NotLoggedIn/NotFound/Closed)` | **不重试**，原样抛出 |
+| `download/fetchBytes` | 只重试 `HttpError`，**不换站**（下载链接是个人域名，换站无意义） |
+
+换站细节：
+
+- 触发后调用 `refreshSite()`：用种子站列表依次 `GET /eapi/info/domains`
+  拿候选域名（也兼容种子站 3xx `Location`；若种子站刚返回过域名、说明它本身可达，
+  允许直接兜底到种子站，避免 HEAD 偶发超时白等）；
+- 探测到第一个可用地址就 `sites.adopt(...)` **覆盖自定义站**，下一次尝试立即生效；
+- **冷却窗口**：`ZlibSites.beginRefresh()` 默认 30 秒一次，避免失败风暴打爆种子站；
+- 每次换站最多探测 `planSiteRefresh(maxCandidates: 4)` 个候选、每个 5 秒超时，
+  避免一次换站把请求卡几分钟（实测一次换站约 20~55 秒，取决于被墙域名数量）；
+- 全部失败抛**最后一次原始异常**（`HttpError` 还是 `HttpError`，`ZlibError` 还是 `ZlibError`）；
+- 新增接口无需关心重试：只要走 `client.getXxx/postXxx` 就自动具备该能力。
+
 ---
 
 ## 6. 仓颉语言特性使用清单
@@ -262,7 +292,7 @@ cjpm build
 
 ```powershell
 cd C:\Project\Cangjie\zlibraryAPI4CJ
-cjpm test --no-progress                       # 全部子包（当前应为 TOTAL 93 / PASSED 93）
+cjpm test --no-progress                       # 全部子包（当前应为 TOTAL 129 / PASSED 129）
 cjpm test --no-progress src\core src\model    # 只跑部分包（仍会先编译整个模块）
 ```
 
@@ -296,11 +326,21 @@ cjpm build
 **改了任何 public 签名，必须同步改 `API_USAGE.md` 与 `doccheck/src/main.cj`，
 并让 `doccheck` 构建通过。** 文档示例编译不过，是本库最容易发生的事故。
 
-### 7.5 联网验证（可选，且常常不可用）
+### 7.5 联网集成测试（`integration/`）
 
-本库的 `cjpm test` **不联网**（固定 JSON 样本）。要验证「接口是否还能用」，
-只能用独立消费工程真打请求；但注意本机网络对 Z-Library 候选镜像几乎不可达
-（实测 503 / 超时），所以默认假定**离线开发**，接口事实以社区文档为准。
+`cjpm test` **不联网**（固定 JSON 样本）。验证「接口是否还能用」用独立消费工程
+`integration/`（executable，path 依赖主工程）：
+
+```powershell
+cd C:\Project\Cangjie\zlibraryAPI4CJ\integration
+cjpm run
+```
+
+- 2026-11-10 在 `https://zh.eva101.ru` 实测 **36/36 通过**（搜索 / 榜单 / 详情 /
+  相似 / 格式 / 站点信息 / 错误映射 / 自动换站重试）；
+- 镜像会轮换：先看 `probeSite` 检查，失败就改 `integration/src/main.cj` 的 `DOMAIN`；
+- 本机对 `z-library.sk` 等域名不可达（超时），但 `zh.eva101.ru` 可用；
+  集成测试里故意用死域名 + 种子站来验证 2.1.0 的换站能力。
 
 ---
 
@@ -344,12 +384,14 @@ cjpm build
 
 ## 10. 当前状态与后续建议
 
+- 2.1.0 新增站点池与请求自动重试（`ZlibSites` / 种子站换站），
+  2026-11-10 在 `zh.eva101.ru` 实测 `integration/` 36/36 通过；
 - 七个业务子包全部完成（`core` / `model` / `login` / `book` / `search` / `user` / `info`），
-  每个包都有离线单测；`cjpm test --no-progress` 当前为 **TOTAL 93 / PASSED 93 / FAILED 0**。
+  每个包都有离线单测；`cjpm test --no-progress` 当前为 **TOTAL 129 / PASSED 129 / FAILED 0**。
 - `doccheck/` 已建立，`cd doccheck && cjpm build` 通过；`API_USAGE.md`
   的每个示例在 `doccheck/src/main.cj` 里都有一个对应函数。
 - 未覆盖的 eapi 能力：`/user/donations` 的形状不稳定（返回原始 JSON）；
-  `/book/{id}/{hash}/formats` 同样只做原始透传；`/papi`、`/rpc.php`
+  `/book/{id}/{hash}/formats` 已按实测形状返回强类型 `ArrayList<BookFormat>`；`/papi`、`/rpc.php`
   等注册验证码流程未覆盖；书单（booklist）未覆盖。
 - 所有接口**未经真实站点回归**（开发机对候选镜像 503/超时），
   字段事实以 `doc/eapi-endpoints.md` 的社区文档标注为准。
@@ -371,3 +413,7 @@ cjpm build
 | `cjpm test src\xxx` 报别的包的错 | 整模块编译；先修好那个包，或等它完成 |
 | 文档示例编译报「找不到成员」 | `doccheck` 没跟着改；以源码签名为准修文档 |
 | `doccheck` 报 target 段相关链接错误 | `doccheck/cjpm.toml` 少抄了主工程的 `[target.x86_64-w64-mingw32]` 三段配置 |
+| 换站过于频繁 / 种子站被限流 | `ZlibSites.beginRefresh()` 冷却窗口（默认 30s）与 `refreshInterval`；确认没有每次都 `refreshSite(force: true)` |
+| 换站后仍全部失败 | 种子站是否可达、`/eapi/info/domains` 是否返回域名；看 `client.sites.snapshot()` 的 `refreshCount` / `lastRefreshAtMillis` |
+| 请求偶尔变慢（几十秒） | 自动换站会串行探测候选域名（每个 5s 超时、最多 4 个）；可调小 `maxCandidates` 或关掉 `autoRetry` |
+| 集成测试全红 | 镜像失效；改 `integration/src/main.cj` 的 `DOMAIN`，先用 `probeSite`/`checkAccess` 确认域名可用 |

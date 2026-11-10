@@ -8,7 +8,7 @@ import linderHttp.*
 /**
  * Z-Library eapi 客户端。
  *
- * 把四件与业务无关、但每个接口都必须正确的事收敛到一处：
+ * 把五件与业务无关、但每个接口都必须正确的事收敛到一处：
  *
  * 1. **连接**：内部只持有一个 LinderHttp `HttpClient`，连接池与 Cookie 存储共享，
  *    所以应当在进程内复用一个实例，而不是每次请求新建（那样每次都要重新 TLS 握手）；
@@ -16,14 +16,36 @@ import linderHttp.*
  *    也写请求头（`remix-userid` / `remix-userkey`），兼容不同版本的服务端；
  * 3. **信封解包**：`{"success":1,...}` / `{"success":0,"error":"..."}` 统一解析，
  *    失败抛 `ZlibError`，子包只需要关心业务字段；
- * 4. **站点地址**：Z-Library 域名不稳定，地址属于客户端配置，可用 `withBaseUrl` 派生。
+ * 4. **站点管理**：自定义站优先 + 种子站兜底换站（详见 `ZlibSites`）；
+ * 5. **自动重试**：请求失败且「换站可能有用」时，先向种子站换到新地址再重试，
+ *    新地址会覆盖自定义站，后续请求立即生效。
  *
- * 客户端是不可变的（`credential` / `host` 都不能原地改），派生用
- * `withCredential` / `withBaseUrl` / `withHost`，它们共享同一个连接池。
+ * ## 站点与重试的协作方式
+ *
+ * ```
+ * 业务 API
+ *   └─ client.getObject / getEnvelope / getRaw …
+ *        └─ execute(operation)                     ← 自动重试外壳
+ *             ├─ 第 1 次：sites.current()（自定义站）
+ *             ├─ 失败（Transport / BadResponse / Forbidden）
+ *             │    └─ refreshSite()：种子站 -> 新地址 -> adopt（覆盖自定义站）
+ *             └─ 第 2..N 次：用新地址重试
+ * ```
+ *
+ * 重试只在「换站有意义」的错误上做：域名失效、被墙、非 JSON 风控页、403。
+ * 业务错误（未登录、书不存在、`success=0`）**不会**重试，避免重复消耗
+ * 下载配额或制造无意义的请求。
+ *
+ * 客户端对「凭证 / 显式站点」仍保持不可变语义：
+ * `withCredential` / `withBaseUrl` 派生新客户端并共享连接池；
+ * 但 `ZlibSites` 内部的地址是受控可变的——自动换站是运行期行为，
+ * 这样一次换站后所有共享该 `ZlibSites` 的客户端都会立即生效。
+ *
  * 实现 `Resource`，支持 try-with-resources：
  *
  * ```cangjie
- * let client = ZlibClient.create(baseUrl: "https://your-zlib-domain")
+ * let client = ZlibClient.create(baseUrl: "https://your-zlib-domain",
+ *     seeds: ["https://seed-domain"])
  * try {
  *     let page = SearchApi.search(client, message: "Rust")
  * } finally {
@@ -35,28 +57,66 @@ public class ZlibClient <: Resource & ToString {
     private let http: HttpClient
     private let credentialValue: ZlibCredential
     private let configValue: ZlibClientConfig
-    private let hostValue: ZlibHost
+    private let sitesValue: ZlibSites
     private var closedFlag: Bool = false
 
     private init(http: HttpClient, credential: ZlibCredential, config: ZlibClientConfig,
-        host: ZlibHost) {
+        sites: ZlibSites) {
         this.http = http
         this.credentialValue = credential
         this.configValue = config
-        this.hostValue = host
+        this.sitesValue = sites
     }
 
     /**
      * 用默认配置创建一个客户端。
      *
-     * @param baseUrl 站点根地址（可带 `/eapi`，内部会规范化）；不知道哪个域名可用时
-     *                先调 `resolveZlibHost()` 探测
+     * @param baseUrl 自定义站（**优先使用**；可带 `/eapi`，内部会规范化）
      * @param credential 初始凭证；默认游客
-     * @param config 连接配置
+     * @param config 连接与重试配置
+     * @param seeds 种子站列表：自定义站失败时用它换新地址；空表示只做同址重试
      */
     public static func create(baseUrl!: String = ZlibHost.DEFAULT_URL,
         credential!: ZlibCredential = ZlibCredential.anonymous(),
+        config!: ZlibClientConfig = ZlibClientConfig(),
+        seeds!: Array<String> = Array<String>()): ZlibClient {
+        createWithSites(ZlibSites(customUrl: baseUrl, seeds: seeds), credential: credential,
+            config: config)
+    }
+
+    /**
+     * 用现成的 `ZlibSites` 创建客户端。
+     *
+     * 适合需要共享/持久化站点状态的场景：把同一个 `ZlibSites` 交给多个客户端，
+     * 任何一处换站都会立即被所有客户端看到。
+     */
+    public static func createWithSites(sites: ZlibSites,
+        credential!: ZlibCredential = ZlibCredential.anonymous(),
         config!: ZlibClientConfig = ZlibClientConfig()): ZlibClient {
+        ZlibClient(buildHttpClient(config), credential, config, sites)
+    }
+
+    /**
+     * 用外部已有的 `HttpClient` 创建（共享调用方的连接池/代理/日志策略）。
+     *
+     * 生命周期仍由 `ZlibClient.close()` 负责关闭。
+     */
+    public static func fromHttpClient(http: HttpClient,
+        baseUrl!: String = ZlibHost.DEFAULT_URL,
+        credential!: ZlibCredential = ZlibCredential.anonymous(),
+        config!: ZlibClientConfig = ZlibClientConfig(),
+        seeds!: Array<String> = Array<String>()): ZlibClient {
+        ZlibClient(http, credential, config, ZlibSites(customUrl: baseUrl, seeds: seeds))
+    }
+
+    /** 用外部 `HttpClient` + 现成 `ZlibSites` 创建。 */
+    public static func fromHttpClientWithSites(http: HttpClient, sites: ZlibSites,
+        credential!: ZlibCredential = ZlibCredential.anonymous(),
+        config!: ZlibClientConfig = ZlibClientConfig()): ZlibClient {
+        ZlibClient(http, credential, config, sites)
+    }
+
+    private static func buildHttpClient(config: ZlibClientConfig): HttpClient {
         let builder = HttpClientBuilder()
             .userAgent(config.userAgent)
             .followRedirects(config.followRedirects)
@@ -70,19 +130,7 @@ public class ZlibClient <: Resource & ToString {
         if (!config.httpProxy.isEmpty()) {
             builder.httpProxy(config.httpProxy)
         }
-        ZlibClient(builder.build(), credential, config, ZlibHost.of(baseUrl))
-    }
-
-    /**
-     * 用外部已有的 `HttpClient` 创建（共享调用方的连接池/代理/日志策略）。
-     *
-     * 生命周期仍由 `ZlibClient.close()` 负责关闭。
-     */
-    public static func fromHttpClient(http: HttpClient,
-        baseUrl!: String = ZlibHost.DEFAULT_URL,
-        credential!: ZlibCredential = ZlibCredential.anonymous(),
-        config!: ZlibClientConfig = ZlibClientConfig()): ZlibClient {
-        ZlibClient(http, credential, config, ZlibHost.of(baseUrl))
+        builder.build()
     }
 
     /** 当前凭证。 */
@@ -99,24 +147,31 @@ public class ZlibClient <: Resource & ToString {
         }
     }
 
-    /** 当前站点。 */
+    /** 站点管理器（自定义站 + 种子站 + 刷新状态）。 */
+    public prop sites: ZlibSites {
+        get() {
+            sitesValue
+        }
+    }
+
+    /** 当前站点（自动换站后是最新地址）。 */
     public prop host: ZlibHost {
         get() {
-            hostValue
+            sitesValue.current()
         }
     }
 
-    /** 当前站点根地址（不带尾部 `/`）。 */
+    /** 当前自定义站地址（不带尾部 `/`）。 */
     public prop baseUrl: String {
         get() {
-            hostValue.url
+            sitesValue.current().url
         }
     }
 
-    /** eapi 根地址（`<站点>/eapi`）。 */
+    /** eapi 根地址（`<当前站点>/eapi`）。 */
     public prop eapiUrl: String {
         get() {
-            hostValue.eapi
+            sitesValue.current().eapi
         }
     }
 
@@ -126,23 +181,77 @@ public class ZlibClient <: Resource & ToString {
     }
 
     /**
-     * 用新凭证派生客户端，共享同一个连接池与 Cookie 存储。
+     * 用新凭证派生客户端，共享同一个连接池、Cookie 存储与站点管理器。
      *
      * 场景：同一进程里既有游客请求又有登录请求，前者不该带上 remix 凭证
      * （会影响推荐/搜索结果的个性化），派生就能干净隔离。
      */
     public func withCredential(value: ZlibCredential): ZlibClient {
-        ZlibClient(http, value, configValue, hostValue)
+        ZlibClient(http, value, configValue, sitesValue)
     }
 
-    /** 用新站点地址派生客户端（域名失效时换镜像），共享连接池。 */
+    /**
+     * 显式换站：用新地址派生客户端。
+     *
+     * 与两处行为相关：
+     * - 派生出的客户端使用**新的** `ZlibSites`（种子站与刷新策略沿用），
+     *   原客户端的地址不受影响；
+     * - 若想让「自动换到的新地址」对原客户端也生效，直接用
+     *   `client.setCustomSite(url)` 或 `client.sites.adopt(...)`。
+     */
     public func withBaseUrl(url: String): ZlibClient {
-        ZlibClient(http, credentialValue, configValue, ZlibHost.of(url))
+        ZlibClient(http, credentialValue, configValue, sitesValue.withCustomUrl(url))
     }
 
-    /** 用新的 `ZlibHost` 派生客户端。 */
+    /** 用新的 `ZlibHost` 显式换站。 */
     public func withHost(value: ZlibHost): ZlibClient {
+        withBaseUrl(value.url)
+    }
+
+    /** 替换站点管理器（种子站、冷却策略等整体替换）。 */
+    public func withSites(value: ZlibSites): ZlibClient {
         ZlibClient(http, credentialValue, configValue, value)
+    }
+
+    /**
+     * 手动覆盖当前自定义站（自动换站内部也走它）。
+     *
+     * 持久化场景：换站后把 `client.currentSiteUrl()` 存下来，下次启动
+     * 作为 `create(baseUrl: ...)` 的入参。
+     */
+    public func setCustomSite(url: String): Unit {
+        sitesValue.setCustomUrl(url)
+    }
+
+    /** 当前实际使用的站点地址。 */
+    public func currentSiteUrl(): String {
+        sitesValue.customUrl()
+    }
+
+    /**
+     * 立即向种子站换一次地址（带冷却窗口，`force` 可跳过）。
+     *
+     * 自动重试内部也用它；返回值表示本轮是否真的换到了新地址。
+     * 失败的诊断信息在 `client.sites.snapshot()` 里（刷新次数、上次时间）。
+     */
+    public func refreshSite(force!: Bool = false): Bool {
+        ensureOpen()
+        if (!sitesValue.hasSeeds()) {
+            return false
+        }
+        if (!sitesValue.beginRefresh(force: force)) {
+            return false
+        }
+        let refreshed = planSiteRefresh(sitesValue.seedUrls(),
+            { seed => fetchSeedDomains(seed) },
+            { url => probeSite(url, timeoutSeconds: 5) },
+            sitesValue.fallbackToSeed())
+        match (refreshed) {
+            case Some(host) =>
+                sitesValue.adopt(host)
+                return true
+            case None => return false
+        }
     }
 
     /**
@@ -195,42 +304,40 @@ public class ZlibClient <: Resource & ToString {
 
     // ---------- 请求 ----------
 
-    /** 拼出完整 eapi 地址（`path` 可以带或不带前导 `/`）。 */
+    /** 拼出完整 eapi 地址（`path` 可以带或不带前导 `/`，站点取当前地址）。 */
     public func apiUrl(path: String): String {
-        if (path.startsWith("/")) {
-            "${eapiUrl}${path}"
-        } else {
-            "${eapiUrl}/${path}"
-        }
+        hostApiUrl(sitesValue.current(), path)
     }
 
-    /** GET 并返回响应体文本（不解包信封）。 */
+    /** GET 并返回响应体文本（不解包信封，仍享受自动重试/换站）。 */
     public func getRaw(path: String,
         query!: Array<(String, String)> = Array<(String, String)>()): String {
         ensureOpen()
-        let url = withQuery(apiUrl(path), query)
-        let response = http.get(url, headers: requestHeaders(), timeouts: None)
-        response.text()
+        execute<String>({ host => sendGet(host, path, query) }, refreshOnFailure: true)
     }
 
     /** POST 表单并返回响应体文本（eapi 的写操作都是 urlencoded 表单）。 */
     public func postFormRaw(path: String, form: Array<(String, String)>): String {
         ensureOpen()
-        let response = http.post(apiUrl(path), Body.form(form),
-            headers: requestHeaders(hasBody: true))
-        response.text()
+        execute<String>({ host => sendPostForm(host, path, form) }, refreshOnFailure: true)
     }
 
     /** GET 并解析信封（调用方自己决定怎么处理 `success`）。 */
     public func getEnvelope(path: String,
         query!: Array<(String, String)> = Array<(String, String)>()): ZlibEnvelope {
-        ZlibEnvelope.parse(getRaw(path, query: query), path: path)
+        ensureOpen()
+        execute<ZlibEnvelope>({ host =>
+            ZlibEnvelope.parse(sendGet(host, path, query), path: path)
+        }, refreshOnFailure: true)
     }
 
     /** POST 表单并解析信封。 */
     public func postFormEnvelope(path: String,
         form: Array<(String, String)>): ZlibEnvelope {
-        ZlibEnvelope.parse(postFormRaw(path, form), path: path)
+        ensureOpen()
+        execute<ZlibEnvelope>({ host =>
+            ZlibEnvelope.parse(sendPostForm(host, path, form), path: path)
+        }, refreshOnFailure: true)
     }
 
     /**
@@ -241,28 +348,40 @@ public class ZlibClient <: Resource & ToString {
      */
     public func getObject<T>(path: String, field: String, decoder: (JsonObject) -> T,
         query!: Array<(String, String)> = Array<(String, String)>()): T {
-        let root = getEnvelope(path, query: query).unwrap(path: path)
-        match (objectFieldOf(root, field)) {
-            case Some(obj) => decoder(obj)
-            case None => throw ZlibError.badResponse(path, "响应缺少 ${field} 对象")
-        }
+        ensureOpen()
+        execute<T>({ host =>
+            let root = ZlibEnvelope.parse(sendGet(host, path, query), path: path)
+                .unwrap(path: path)
+            match (objectFieldOf(root, field)) {
+                case Some(obj) => decoder(obj)
+                case None => throw ZlibError.badResponse(path, "响应缺少 ${field} 对象")
+            }
+        }, refreshOnFailure: true)
     }
 
     /** GET 并解出根上某个数组字段的强类型列表。 */
     public func getObjects<T>(path: String, field: String, decoder: (JsonObject) -> T,
         query!: Array<(String, String)> = Array<(String, String)>()): ArrayList<T> {
-        let root = getEnvelope(path, query: query).unwrap(path: path)
-        decodeEach<T>(arrayFieldOf(root, field)) { obj => decoder(obj) }
+        ensureOpen()
+        execute<ArrayList<T>>({ host =>
+            let root = ZlibEnvelope.parse(sendGet(host, path, query), path: path)
+                .unwrap(path: path)
+            decodeEach<T>(arrayFieldOf(root, field)) { obj => decoder(obj) }
+        }, refreshOnFailure: true)
     }
 
     /** POST 表单并解出根上某个对象字段的强类型值（登录接口用）。 */
     public func postFormObject<T>(path: String, field: String, form: Array<(String, String)>,
         decoder: (JsonObject) -> T): T {
-        let root = postFormEnvelope(path, form).unwrap(path: path)
-        match (objectFieldOf(root, field)) {
-            case Some(obj) => decoder(obj)
-            case None => throw ZlibError.badResponse(path, "响应缺少 ${field} 对象")
-        }
+        ensureOpen()
+        execute<T>({ host =>
+            let root = ZlibEnvelope.parse(sendPostForm(host, path, form), path: path)
+                .unwrap(path: path)
+            match (objectFieldOf(root, field)) {
+                case Some(obj) => decoder(obj)
+                case None => throw ZlibError.badResponse(path, "响应缺少 ${field} 对象")
+            }
+        }, refreshOnFailure: true)
     }
 
     // ---------- 二进制 ----------
@@ -273,28 +392,91 @@ public class ZlibClient <: Resource & ToString {
      * 与 API 请求共享连接池，但使用独立的请求头（不带 remix 凭证：
      * 下载链接是签名过的绝对地址，凭据对文件域名没有意义，还可能触发跨域校验）。
      *
+     * 下载**不触发换站**：下载链接指向账号的个人域名/CDN，换站点地址对它没有帮助；
+     * 但传输层抖动仍会按 `maxAttempts` 重试同一链接。
+     *
      * @param overwrite `false` 时若目标已存在会自动改名（`file(1).ext`）
      * @return 写入的字节数
      */
     public func download(url: String, path: Path, overwrite!: Bool = false): Int64 {
         ensureOpen()
-        let response = http.get(url, headers: fileHeaders())
-        if (!response.ok) {
-            let preview = truncateBytesSafe(response.text(), 200, suffix: "")
-            throw ZlibError.httpStatus(url, response.status, preview)
-        }
-        response.saveTo(path, overwrite: overwrite)
+        execute<Int64>({ host =>
+            let response = http.get(url, headers: fileHeaders(host))
+            if (!response.ok) {
+                let preview = truncateBytesSafe(response.text(), 200, suffix: "")
+                throw ZlibError.httpStatus(url, response.status, preview)
+            }
+            response.saveTo(path, overwrite: overwrite)
+        }, refreshOnFailure: false)
     }
 
     /** 取一个绝对 URL 的字节内容（封面图等）。 */
     public func fetchBytes(url: String): Array<Byte> {
         ensureOpen()
-        let response = http.get(url, headers: fileHeaders())
-        if (!response.ok) {
-            let preview = truncateBytesSafe(response.text(), 200, suffix: "")
-            throw ZlibError.httpStatus(url, response.status, preview)
+        execute<Array<Byte>>({ host =>
+            let response = http.get(url, headers: fileHeaders(host))
+            if (!response.ok) {
+                let preview = truncateBytesSafe(response.text(), 200, suffix: "")
+                throw ZlibError.httpStatus(url, response.status, preview)
+            }
+            response.bytes()
+        }, refreshOnFailure: false)
+    }
+
+    // ---------- 重试与站点刷新 ----------
+
+    /** 一次请求最多尝试几次（含首次）。 */
+    private func attemptLimit(): Int64 {
+        if (!configValue.autoRetry || configValue.maxAttempts < 1) {
+            return 1
         }
-        response.bytes()
+        configValue.maxAttempts
+    }
+
+    /**
+     * 自动重试外壳。
+     *
+     * - `ZlibError`：只有 `refreshOnFailure` 且错误类别属于「换站可能有用」
+     *   （连不上 / 非 JSON / 403）才重试；业务错误原样抛出；
+     * - `HttpError`（LinderHttp 传输层）：属于瞬时问题，按次数重试；
+     * - 每次重试前重新读 `sitesValue.current()`，所以换站立即生效。
+     *
+     * 全部尝试失败时抛出**最后一次**的原始异常，调用方看到的仍是熟悉的
+     * `HttpError` / `ZlibError`，不会被包装成第三方异常类型。
+     */
+    internal func execute<T>(operation: (ZlibHost) -> T, refreshOnFailure!: Bool): T {
+        let attempts = attemptLimit()
+        var attempt: Int64 = 1
+        var lastError: ?Exception = None
+        while (attempt <= attempts) {
+            let host = sitesValue.current()
+            try {
+                return operation(host)
+            } catch (err: ZlibError) {
+                lastError = err
+                if (!refreshOnFailure || !shouldSwitchSite(err.kind) || attempt >= attempts) {
+                    throw err
+                }
+            } catch (err: HttpError) {
+                lastError = err
+                if (attempt >= attempts) {
+                    throw err
+                }
+            }
+            attempt++
+            if (refreshOnFailure && attempt <= attempts) {
+                tryRefreshSite()
+            }
+        }
+        throw lastError.getOrThrow()
+    }
+
+    /** 失败后尝试换站（无种子站或处于冷却窗口时静默跳过）。 */
+    private func tryRefreshSite(): Unit {
+        if (!sitesValue.hasSeeds()) {
+            return
+        }
+        let _ = refreshSite()
     }
 
     // ---------- 内部工具 ----------
@@ -305,19 +487,44 @@ public class ZlibClient <: Resource & ToString {
         }
     }
 
+    /** 当前站点 + eapi 路径 -> 完整 URL。 */
+    private func hostApiUrl(host: ZlibHost, path: String): String {
+        if (path.startsWith("/")) {
+            "${host.eapi}${path}"
+        } else {
+            "${host.eapi}/${path}"
+        }
+    }
+
+    /** 发一次 GET，返回响应体文本（不做重试，重试由 `execute` 负责）。 */
+    private func sendGet(host: ZlibHost, path: String,
+        query: Array<(String, String)>): String {
+        let url = withQuery(hostApiUrl(host, path), query)
+        let response = http.get(url, headers: requestHeaders(host), timeouts: None)
+        response.text()
+    }
+
+    /** 发一次 POST 表单，返回响应体文本。 */
+    private func sendPostForm(host: ZlibHost, path: String,
+        form: Array<(String, String)>): String {
+        let response = http.post(hostApiUrl(host, path), Body.form(form),
+            headers: requestHeaders(host, hasBody: true))
+        response.text()
+    }
+
     /**
      * 组装 API 请求头。
      *
      * `Accept` 用 `application/json` 是因为 eapi 的响应就是 JSON；部分镜像会按
      * `Accept` 返回 HTML 登录页，缺这个头会让「明明接口可用」的请求变成非 JSON 错误。
      */
-    private func requestHeaders(hasBody!: Bool = false): Headers {
+    private func requestHeaders(host: ZlibHost, hasBody!: Bool = false): Headers {
         let headers = Headers()
         headers.set("User-Agent", configValue.userAgent)
         headers.set("Accept", "application/json, text/plain, */*")
         headers.set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
-        headers.set("Referer", hostValue.origin)
-        headers.set("Origin", hostValue.url)
+        headers.set("Referer", host.origin)
+        headers.set("Origin", host.url)
         if (hasBody) {
             headers.set("Content-Type", "application/x-www-form-urlencoded")
         }
@@ -329,11 +536,11 @@ public class ZlibClient <: Resource & ToString {
     }
 
     /** 下载/图片请求头：只带 UA 与 Referer，不带凭证。 */
-    private func fileHeaders(): Headers {
+    private func fileHeaders(host: ZlibHost): Headers {
         let headers = Headers()
         headers.set("User-Agent", configValue.userAgent)
         headers.set("Accept", "*/*")
-        headers.set("Referer", hostValue.origin)
+        headers.set("Referer", host.origin)
         headers
     }
 
@@ -347,7 +554,8 @@ public class ZlibClient <: Resource & ToString {
     }
 
     public func toString(): String {
-        "ZlibClient(login=${credentialValue.isLoggedIn}, host=${hostValue.url}, closed=${closedFlag})"
+        "ZlibClient(login=${credentialValue.isLoggedIn}, site=${sitesValue.customUrl()}, " +
+            "closed=${closedFlag})"
     }
 }
 
@@ -373,6 +581,10 @@ public class ZlibClientConfig <: ToString {
     public var httpProxy: String = ""
     /** HTTPS 代理；空串表示不使用。 */
     public var httpsProxy: String = ""
+    /** 是否开启请求自动重试（含失败换站）。默认开启。 */
+    public var autoRetry: Bool = true
+    /** 单次请求最多尝试次数（含首次）。默认 3；小于 1 时按 1 处理。 */
+    public var maxAttempts: Int64 = 3
 
     public init() {}
 
@@ -385,10 +597,13 @@ public class ZlibClientConfig <: ToString {
         cloned.followRedirects = followRedirects
         cloned.httpProxy = httpProxy
         cloned.httpsProxy = httpsProxy
+        cloned.autoRetry = autoRetry
+        cloned.maxAttempts = maxAttempts
         cloned
     }
 
     public func toString(): String {
-        "ZlibClientConfig(readTimeout=${readTimeout}, totalTimeout=${totalTimeout})"
+        "ZlibClientConfig(readTimeout=${readTimeout}, totalTimeout=${totalTimeout}, " +
+            "autoRetry=${autoRetry}, maxAttempts=${maxAttempts})"
     }
 }

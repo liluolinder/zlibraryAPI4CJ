@@ -10,7 +10,7 @@
  *
  * | 子包 | 职责 |
  * | --- | --- |
- * | `zlibraryAPI4CJ.core`   | 客户端、凭证、站点地址探测、响应信封、错误、URL/表单编码、容错 JSON 读取 |
+ * | `zlibraryAPI4CJ.core`   | 客户端、凭证、站点池（自定义站 + 种子站换站）、响应信封、错误、URL/表单编码、容错 JSON 读取 |
  * | `zlibraryAPI4CJ.model`  | 跨子包共享的数据模型：图书、用户、下载信息、分页 |
  * | `zlibraryAPI4CJ.login`  | 邮箱密码登录、remix 凭证登录、注册/找回密码/第三方 token 登录 |
  * | `zlibraryAPI4CJ.book`   | 图书详情、相似图书、下载信息、保存/取消保存/删除、发送到 Kindle/邮箱、下载 |

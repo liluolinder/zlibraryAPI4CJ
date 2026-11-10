@@ -141,6 +141,58 @@ class BookInfoBriefTest {
         @Expect(brief.webpage(baseUrl: "https://a.com"), "https://a.com/book/42/h42")
         @Expect(brief.toString().contains("书名"), true)
     }
+
+    @TestCase
+    func testDecodeRealShape(): Unit {
+        // 2026-11-10 实测 most-popular / similar 的列表项形状：
+        // id, isbn, url, title, author, cover, coverData, hash
+        let brief = BookInfoBrief.fromJson("""
+{
+  "id": 24126585,
+  "isbn": "9787111495482",
+  "url": "/book/V9W3MOb89Y/book.html",
+  "title": "毛泽东选集",
+  "author": "毛泽东",
+  "cover": "https://example.com/c.jpg",
+  "coverData": " data-id=24126585 data-title=毛泽东选集",
+  "hash": "217fd6"
+}
+""")
+        @Expect(brief.id, 24126585)
+        @Expect(brief.isbn, "9787111495482")
+        @Expect(brief.url, "/book/V9W3MOb89Y/book.html")
+        @Expect(brief.coverData.contains("24126585"), true)
+        // 有 url 时优先用它拼网页地址
+        @Expect(brief.webpage(baseUrl: "https://zh.eva101.ru"),
+            "https://zh.eva101.ru/book/V9W3MOb89Y/book.html")
+        // 绝对 url 原样返回
+        let absolute = BookInfoBrief.fromJson("{\"url\":\"https://x.com/book/1/2/a.html\"}")
+        @Expect(absolute.webpage(baseUrl: "https://a.com"), "https://x.com/book/1/2/a.html")
+    }
+}
+
+@Test
+class BookFormatTest {
+    @TestCase
+    func testDecodeRealShape(): Unit {
+        // 2026-11-10 实测 /formats 的 books 元素形状
+        let format = BookFormat.fromJson(
+            "{\"id\":35851393,\"hash\":\"b4c3ae\",\"extension\":\"azw3\"," +
+                "\"filesize\":5285744,\"filesizeString\":\"5.04 MB\"}")
+        @Expect(format.id, 35851393)
+        @Expect(format.hash, "b4c3ae")
+        @Expect(format.extension, "azw3")
+        @Expect(format.filesize, 5285744)
+        @Expect(format.sizeText(), "5.04 MB")
+        @Expect(format.toString().contains("azw3"), true)
+    }
+
+    @TestCase
+    func testSizeTextFallback(): Unit {
+        let format = BookFormat.fromJson("{\"filesize\":2048}")
+        @Expect(format.sizeText(), "2 KB")
+        @Expect(BookFormat.fromJson("{}").sizeText(), "")
+    }
 }
 
 @Test

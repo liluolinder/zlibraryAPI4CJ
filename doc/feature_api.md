@@ -50,8 +50,8 @@
 | `BookInfo`（带 HTTP 方法） | `BookInfo`（纯模型）+ `BookApi` | 旧 `saveBook` / `unSaveBook` / `getSimilarBook` / `getDownloadInfo` 全部移到 `BookApi` |
 | `BookInfoBrief`（带 HTTP 方法） | `BookInfoBrief`（纯模型）+ `BookApi` | 同上 |
 | `DownloadInfo`（含 `download()`） | `DownloadInfo`（纯模型）+ `BookApi.download` / `client.download` | `fileName` 属性 → `fileName()` 方法 |
-| `common.zlibBaseUrl` / `zlibEAPI` / `changeUrl` | `ZlibHost` / `ZlibClient.baseUrl` / `withBaseUrl` | 不再有全局变量 |
-| `common.canAccessZlib` / `checkAccess` | 同名顶层函数（签名变化） | 见第 5 节 |
+| `common.zlibBaseUrl` / `zlibEAPI` / `changeUrl` | `ZlibHost` / `ZlibClient.baseUrl` / `withBaseUrl` / `ZlibSites` | 不再有全局变量；2.1.0 起「失败自动换站」由 `ZlibSites`（自定义站 + 种子站）管理 |
+| `common.canAccessZlib` / `checkAccess` | 同名顶层函数（签名变化） | 探测逻辑保留；自动换站用 `resolveZlibHost` 或 `ZlibClient.create(..., seeds: ...)` |
 | （无） | `ZlibCredential` | v1 用裸 cookie 字符串，v2 有了类型 |
 | （无） | `ZlibError` / `ZlibErrorKind` | v1 只有 `Exception` / `success=0` |
 | （无） | `ZlibEnvelope` | v1 每个接口一个 `XxxRes`，v2 统一信封 |
@@ -87,7 +87,7 @@
 | `bookInfo.saveBook(cookie: ...)` → `Bool` | `BookApi.save(client, id)` / `BookApi.saveBrief(client, brief)` → `Unit`（失败抛异常） |
 | `bookInfo.unSaveBook(cookie: ...)` → `Bool` | `BookApi.unsave(client, id)` / `BookApi.unsaveBrief(client, brief)` |
 | （无） | `BookApi.remove(client, id)`（`/user/book/{id}/delete`） |
-| （无） | `BookApi.formats(client, id, hash)`（原始 JSON） |
+| （无） | `BookApi.formats(client, id, hash): ArrayList<BookFormat>` |
 | （无） | `BookApi.sendTo(client, id, hash, target)` |
 | `downloadInfo.download(path: Path, overwrite: Bool)` | `BookApi.download(client, info, dir, overwrite: ...)` / `BookApi.downloadBook(client, id, hash, dir, ...)` |
 

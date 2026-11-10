@@ -24,6 +24,7 @@
  * | `host.cj`       | `ZlibHost` / `checkAccess` / `canAccessZlib` / `resolveZlibHost` |
  * | `envelope.cj`   | `ZlibEnvelope` + 宽松 JSON 读取工具 |
  * | `error.cj`      | `ZlibErrorKind` / `ZlibError` |
+ * | `site.cj`       | `ZlibSites`：自定义站（优先）+ 种子站（失败换站），换站计划与域名列表提取 |
  * | `query.cj`      | `Query` / `withQuery` / `formEncode` / 百分号编码 |
  * | `text.cj`       | UTF-8 安全截断 |
  */

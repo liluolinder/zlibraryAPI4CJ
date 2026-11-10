@@ -8,7 +8,7 @@
  * | GET | `/book/{id}/{hash}` | 图书详情（`book` 字段） |
  * | GET | `/book/{id}/{hash}/similar` | 相似图书（`books` 数组） |
  * | GET | `/book/{id}/{hash}/file` | 下载信息（`file` 字段，含签名下载链接） |
- * | GET | `/book/{id}/{hash}/formats` | 可用格式（原始 JSON，形状不稳定） |
+ * | GET | `/book/{id}/{hash}/formats` | 可用格式（`books` 数组，每个格式版本有自己的 id/hash） |
  * | GET | `/book/{id}/{hash}/send-to-{type}` | 发送到 Kindle / 邮箱 |
  * | GET | `/user/book/{id}/save` | 收藏 |
  * | GET | `/user/book/{id}/unsave` | 取消收藏 |

@@ -29,21 +29,23 @@ public class ZlibHost <: ToString {
     /**
      * 默认站点地址。
      *
-     * 这是老版本项目使用的第三方镜像。它**随时可能失效**，生产环境请显式传
-     * `baseUrl` 或先用 `resolveZlibHost()` 探测。之所以不写成官方域名，
-     * 是因为官方域名本身也在轮换，写死任何一个都会很快过期。
+     * **2026-11-10 实测**：`https://zh.eva101.ru` 的 eapi 可用
+     * （`/eapi/book/search`、`/eapi/book/most-popular`、`/eapi/info/domains`
+     * 等均返回 `success=1`），故作为默认站点。但镜像域名随时会轮换，
+     * 生产环境仍建议显式传 `baseUrl` 或先用 `resolveZlibHost()` 探测。
      */
-    public static let DEFAULT_URL: String = "https://tw.jiaoyuan.ru"
+    public static let DEFAULT_URL: String = "https://zh.eva101.ru"
 
     /**
      * 候选镜像列表，供 `resolveZlibHost()` 探测。
      *
-     * 来源：官方 eapi 文档提到的可用域（`1lib.fr` / `singlelogin.me`）与
-     * 社区客户端长期使用的域名。列表只是「候选」，不保证每个都可用；
-     * 探测失败会自动跳到下一个。
+     * 来源：2026-11-10 实测可用的镜像（`zh.eva101.ru`）与官方 eapi 文档/社区
+     * 客户端长期使用的域名。列表只是「候选」，不保证每个都可用；
+     * 探测失败会自动跳到下一个。**从当前网络环境看，本机只能连通
+     * `zh.eva101.ru`，其余域名会超时**——这也是本库要做换站的原因。
      */
     public static let MIRRORS: Array<String> = [
-        "https://tw.jiaoyuan.ru",
+        "https://zh.eva101.ru",
         "https://z-library.sk",
         "https://zh.z-library.sk",
         "https://1lib.sk",
@@ -141,11 +143,20 @@ public class ZlibProbe <: ToString {
  *
  * **必须关掉自动重定向**：Z-Library 的镜像入口正是靠 3xx 的 `Location`
  * 把请求转到真正可用的站点；跟随重定向就看不到 `Location` 了。
+ *
+ * @param url 被探测地址
+ * @param timeoutSeconds 读超时（秒）；总超时会再加上 5 秒余量。
+ *                       换站流程里会用更短的超时（5 秒），避免一次刷新卡太久。
  */
-public func probeSite(url: String): ZlibProbe {
+public func probeSite(url: String, timeoutSeconds!: Int64 = 10): ZlibProbe {
+    let seconds = if (timeoutSeconds < 1) {
+        1
+    } else {
+        timeoutSeconds
+    }
     let client = HttpClientBuilder()
-        .readTimeout(Duration.second * 10)
-        .totalTimeout(Duration.second * 15)
+        .readTimeout(Duration.second * seconds)
+        .totalTimeout(Duration.second * (seconds + 5))
         .followRedirects(false)
         .cookies(false)
         .build()

@@ -85,17 +85,19 @@
 
 ### 1.6 可信度标注
 
-本文件用四种标注：
+本文件用五种标注：
 
 | 标注 | 含义 |
 | --- | --- |
 | **社区文档** | 来自 baroxyton/zlibrary-eapi-documentation 的端点清单/说明 |
 | **社区客户端** | 来自 bipinkrish/Zlibrary-API 的实现（参数名等细节） |
 | **旧版实测** | 本库 v1 代码/注释里记录的实测结论（如字段缺失、`_isUserSavedBook` 下划线） |
+| **v2 实测** | 2026-11-10 在 `https://zh.eva101.ru` 上跑 `integration/` 时直接观察到的行为（36/36 通过） |
 | **推断** | 按端点命名/社区用法推断，**没有独立证据**；接口失效时优先怀疑这类 |
 
-> 本库 v2 **没有**在真实站点上逐条回归（本机对候选镜像 503/超时，
-> 见 `MEMORY.md` 第 3 节）。所以下表没有「v2 实测」这一档。
+> 2026-11-10 起，本库用独立工程 `integration/` 做过一轮真实站点联调
+> （`zh.eva101.ru`，36/36 通过）；未覆盖部分仍按社区文档标注。
+> 实测细节见 `MEMORY.md` 第 16 节。
 
 ---
 
@@ -124,15 +126,18 @@
   具体取值集合**推断**，本库不做枚举约束（原样透传）。
 - 注册验证码流程（`/papi/user/verification/send-code`、`/rpc.php`）
   **不在本库覆盖范围**。
+- **实测补充（2026-11-10）**：未登录/凭证错误时 HTTP 状态码是 **400**，
+  但响应体仍是 JSON（`{"success":0,"error":"登录到您的账户"}`）；
+  本库不按 HTTP 状态码判错，而是解析 body 的 `success`，因此错误映射不受影响。
 
 ### 2.2 图书（`zlibraryAPI4CJ.book`）
 
 | 方法 | 路径 | 参数 | 鉴权 | 返回字段 | 本库入口 | 可信度 |
 | --- | --- | --- | --- | --- | --- | --- |
-| GET | `/book/{id}/{hash}` | query `switch-language`（可选） | 可选 | `book`（对象，见 3.1） | `BookApi.info` / `BookApi.infoOf` | 社区文档 |
-| GET | `/book/{id}/{hash}/similar` | 无 | 可选 | `books`（数组，元素为简要图书） | `BookApi.similar` / `BookApi.similarOf` | 社区文档 |
+| GET | `/book/{id}/{hash}` | query `switch-language`（可选） | 可选 | `book`（对象，见 3.1） | `BookApi.info` / `BookApi.infoOf` | 社区文档 + **v2 实测** |
+| GET | `/book/{id}/{hash}/similar` | 无 | 可选 | `books`（数组，元素为简要图书，见 6.2） | `BookApi.similar` / `BookApi.similarOf` | 社区文档 + **v2 实测** |
 | GET | `/book/{id}/{hash}/file` | 无 | 需要 | `file`（对象：`downloadLink`、`description`、`author`、`extension`、`allowDownload`） | `BookApi.file` / `BookApi.fileOf` | 社区文档 + 社区客户端 |
-| GET | `/book/{id}/{hash}/formats` | 无 | 不明确（面板内容与账号相关，按登录态调用更稳） | 形状不稳定的面板数据（本库返回原始 `JsonObject`） | `BookApi.formats` | 社区文档（形状为**推断**） |
+| GET | `/book/{id}/{hash}/formats` | 无 | 可选（匿名实测可用） | `books` 数组：每项 `id`/`hash`/`extension`/`filesize`/`filesizeString` | `BookApi.formats`（返回 `ArrayList<BookFormat>`） | **v2 实测**（zh.eva101.ru, 2026-11-10） |
 | GET | `/book/{id}/{hash}/send-to-{type}` | 路径里的 `{type}`（如 `kindle`、`email`） | 需要 | 信封 | `BookApi.sendTo` | 社区客户端（`type` 取值集合为**推断**） |
 | GET | `/user/book/{id}/save` | 无 | 需要 | 信封 | `BookApi.save` / `BookApi.saveBrief` | 社区文档 |
 | GET | `/user/book/{id}/unsave` | 无 | 需要 | 信封 | `BookApi.unsave` / `BookApi.unsaveBrief` | 社区文档 |
@@ -151,9 +156,9 @@
 
 | 方法 | 路径 | 参数 | 鉴权 | 返回字段 | 本库入口 | 可信度 |
 | --- | --- | --- | --- | --- | --- | --- |
-| POST | `/book/search` | 表单：`message`、`yearFrom`、`yearTo`、`languages[]`、`extensions[]`、`order`、`page`、`limit` | 可选 | `books` + `pagination` | `SearchApi.search` | 社区文档 + 社区客户端 |
-| GET | `/book/most-popular` | query `switch-language`（可选） | 可选 | `books`（数组） | `SearchApi.mostPopular` | 社区文档 + 社区客户端 |
-| GET | `/book/recently` | 无 | 可选 | `books`（数组） | `SearchApi.recently` | 社区文档 |
+| POST | `/book/search` | 表单：`message`、`yearFrom`、`yearTo`、`languages[]`、`extensions[]`、`order`、`page`、`limit` | 可选 | `books` + `pagination`（额外含 `before`/`next`，本库忽略） | `SearchApi.search` | 社区文档 + 社区客户端 + **v2 实测** |
+| GET | `/book/most-popular` | query `switch-language`（可选） | 可选 | `books`（数组，实测 100 条简要图书） | `SearchApi.mostPopular` | 社区文档 + 社区客户端 + **v2 实测** |
+| GET | `/book/recently` | 无 | 可选 | `books`（数组）；**实测返回 `{"success":1}` 不含 books**（可能按账号/时间无数据） | `SearchApi.recently` | 社区文档 + **v2 实测**（返回空） |
 
 补充（搜索参数）：
 
@@ -195,10 +200,10 @@
 
 | 方法 | 路径 | 参数 | 鉴权 | 返回字段 | 本库入口 | 可信度 |
 | --- | --- | --- | --- | --- | --- | --- |
-| GET | `/info` | query `switch-language`（可选） | 否 | 站点信息（形状不稳定） | `InfoApi.site` | 社区文档 |
-| GET | `/info/languages` | 无 | 否 | 语言列表（形状不稳定） | `InfoApi.languages` | 社区文档 |
-| GET | `/info/extensions` | 无 | 否 | 扩展名列表（形状不稳定） | `InfoApi.extensions` | 社区文档 |
-| GET | `/info/domains` | 无 | 否 | 可用域名（形状不稳定） | `InfoApi.domains` | 社区文档 |
+| GET | `/info` | query `switch-language`（可选） | 否 | 站点信息：`books`/`articles`/`plans`/`languages`/`extensions`/`banner`/`service` 等 | `InfoApi.site` | 社区文档 + **v2 实测** |
+| GET | `/info/languages` | 无 | 否 | `languages`：**map** `{"english":"英语",...}`（实测 175 种） | `InfoApi.languages` | 社区文档 + **v2 实测** |
+| GET | `/info/extensions` | 无 | 否 | `extensions`：字符串数组（实测 12 项） | `InfoApi.extensions` | 社区文档 + **v2 实测** |
+| GET | `/info/domains` | 无 | 否 | `domains`：对象数组，每项 `domain`/`contentAvailable`/`isRedirector`；**种子站换站内部也用它**（`fetchSeedDomains` + `extractDomainList`） | `InfoApi.domains` | 社区文档 + **v2 实测** |
 | GET | `/info/plans` | query `switch-language` / `switchLanguage`（**有分歧**） | 否 | 套餐信息（形状不稳定） | `InfoApi.plans` | 社区文档 + 社区客户端 |
 
 补充：
@@ -331,3 +336,51 @@
 
 > 上述外部仓库仅作**事实参考**，本文件没有照抄其英文原文；
 > 端点的可用性以实际服务端行为为准。
+
+---
+
+## 6. v2 实测样本（2026-11-10，zh.eva101.ru）
+
+> 只摘录与本库模型字段相关的部分；完整结果见 `integration/` 与 `MEMORY.md` 第 16 节。
+
+### 6.1 列表项（`most-popular` / `similar`）
+
+```json
+{"id":24126585,"isbn":"","url":"/book/V9W3MOb89Y/...html","title":"毛泽东选集(1-7卷...)","author":"毛泽东","cover":"https://...jpg","coverData":" data-id=24126585 ...","hash":"217fd6"}
+```
+
+对应 `BookInfoBrief`（2.1.0 增加 `isbn` / `url` / `coverData`）。
+
+### 6.2 搜索（`/book/search`）
+
+```json
+{"success":1,"books":[...完整 BookInfo...],"pagination":{"limit":5,"current":1,"before":0,"next":2,"total_items":500,"total_pages":100}}
+```
+
+`books` 元素是完整 `BookInfo`（含 `dl`、`readOnlineUrl`、`categories`、`_isUserSavedBook` 等）。
+
+### 6.3 格式（`/book/{id}/{hash}/formats`）
+
+```json
+{"success":1,"books":[{"id":35851393,"hash":"b4c3ae","extension":"azw3","filesize":5285744,"filesizeString":"5.04 MB"}]}
+```
+
+部分书返回 `{"success":1,"books":[]}`（实测 17309781/625607）。
+
+### 6.4 站点信息
+
+- `/info/extensions`：`{"success":1,"extensions":["pdf","fb2","epub","lit","mobi","djvu","djv","txt","rtf","azw","azw3","cbz"]}`
+- `/info/languages`：`{"success":1,"languages":{"english":"英语","russian":"俄语",...}}`（175 种）
+- `/info/domains`：`{"success":1,"domains":[{"domain":"z-library.sk","contentAvailable":true,"isRedirector":false},...]}`
+
+### 6.5 未登录错误（HTTP 400，但 body 是 JSON）
+
+`/user/profile`、`/user/book/saved`、`/book/{id}/{hash}/file` 等：
+
+```
+HTTP/1.1 400
+{"success":0,"error":"登录到您的账户"}
+```
+
+本库映射成 `ZlibErrorKind.NotLoggedIn`（`unwrap` 识别中英文 login 文案）。
+错误密码登录是 `{"success":0,"error":"电子邮件或密码错误"}` → `ApiFailure`。

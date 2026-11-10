@@ -198,9 +198,10 @@ v2 把站点收敛成 `ZlibHost` 值对象，挂在不可变的 `ZlibClient` 上
 
 所以 v2 的结论是：**站点地址是一等配置，不是常量**。
 
-- `ZlibHost.DEFAULT_URL` 只是「老项目的第三方镜像」，注释里写明了随时可能失效；
+- `ZlibHost.DEFAULT_URL` 2.1.0 起设为 `https://zh.eva101.ru`（2026-11-10 实测 eapi 可用），
+  但注释里仍写明镜像会轮换；
 - `ZlibHost.MIRRORS` 是**候选列表**，不保证每个都通；
-- 真正用法是 `resolveZlibHost()` 探测，或调用方自己传 `baseUrl`。
+- 真正用法是配置 `seeds` 自动换站、`resolveZlibHost()` 探测，或调用方自己传 `baseUrl`。
 
 ### 3.2 本机实测：候选镜像基本不可达（2026-11-10）
 
@@ -216,6 +217,13 @@ Invoke-WebRequest -Uri https://1lib.sk       -Method Head -TimeoutSec 8
 `tw.jiaoyuan.ru` 回 503 时 `ZlibProbe.reachable` 仍判为「连得上」
 （503 是站点维护页，说明 DNS/TLS 通了，换镜像可能没用但对域名本身是活证据）。
 **这就是本库所有单元测试都不联网的直接原因**（见第 10 节）。
+
+**2026-11-10 补充（第二轮实测）**：用户提供了 `https://zh.eva101.ru`，该域名的
+eapi **可用**（HEAD `/` 返回 503，但 `/eapi/book/search` 等全部 `success=1`），
+于是有了 `integration/` 联网集成测试（36/36 通过，详见第 16 节）。
+`z-library.sk` / `1lib.sk` / `article.sk` 等从本机仍然超时——
+**这正好验证了「种子站返回的域名列表不一定对你可用」**，也是换站逻辑
+在候选域名全部探测失败后要能回退到种子站本身的原因。
 
 ### 3.3 下载链接的域名与站点域名不同
 
@@ -428,10 +436,12 @@ case 2 => return "t" + "wo"
 
 ---
 
-## 10. 本机连不上 z-lib，所以测试全部离线
+## 10. `cjpm test` 一律离线；联网验证放 `integration/`
 
-- 实测：候选镜像 503 / 超时（第 3.2 节的 PowerShell 记录）；
-- 即使偶尔能连上，Z-Library 对自动化请求有风控（Cloudflare 类页面），
+- 实测：候选镜像大多 503 / 超时（第 3.2 节的 PowerShell 记录）；
+  2026-11-10 找到可用的 `zh.eva101.ru` 后，联网验证改由独立工程
+  `integration/` 承担（`cjpm run`），**仍然不放进 `cjpm test`**；
+- 即使能连上，Z-Library 对自动化请求有风控（Cloudflare 类页面），
   单元测试拿它当依赖会变成随机红灯；
 - eapi 的写操作（登录、收藏）会改动真实账号状态。
 
@@ -532,19 +542,22 @@ cjpm build
 
 ## 14. 已知限制与未覆盖项
 
-1. **未联网验证**：v2 的所有接口路径/参数来自社区文档与旧代码，
-   没有在真实站点上逐条回归（本机网络不可达，见第 3.2、10 节）。
-   `doc/eapi-endpoints.md` 里对「实测 / 推断」做了标注。
-2. **`/user/donations`、`/book/{id}/{hash}/formats`、`/info/*`**
-   返回原始 `JsonObject`：形状不稳定，本库不承诺字段。
+1. **已完成一轮真实站点联调**：2026-11-10 用 `zh.eva101.ru` 跑 `integration/`
+   36/36 通过（搜索/榜单/详情/相似/格式/站点信息/错误映射/自动换站重试），
+   详见第 16 节；但镜像与字段仍会变，`doc/eapi-endpoints.md` 用
+   「社区文档 / v2 实测 / 推断」标注可信度。
+2. **形状不稳定的接口**：`/user/donations`、`/info/*` 仍返回原始 `JsonObject`；
+   `/book/{id}/{hash}/formats` 已在 2.1.0 按实测形状强类型化为 `ArrayList<BookFormat>`。
 3. **注册验证码流程未覆盖**：`/papi/user/verification/send-code`、
    `/rpc.php`（社区客户端用过）不在本库范围内，只覆盖
    `user/registration` 这一条无验证码路径。
-4. **没有限流/重试策略**：重试交给 LinderHttp 的 `RetryPolicy` 默认值；
-   Z-Library 每日下载次数限制由服务端控制（`ZlibUser.downloadsLeft()` 只是展示）。
-5. **静态库无法独立运行**：验证必须通过消费工程（`doccheck/` 或调用方项目）。
-6. **域名硬编码风险**：`ZlibHost.DEFAULT_URL` 与 `MIRRORS` 必然过期，
-   生产环境请显式传 `baseUrl` 或先 `resolveZlibHost()`。
+4. **重试与限流**：2.1.0 起有请求级自动重试（默认 3 次）与站点切换冷却（默认 30 秒），
+   但**没有**全局限流/退避队列；Z-Library 每日下载次数限制由服务端控制
+   （`ZlibUser.downloadsLeft()` 只是展示）。
+5. **静态库无法独立运行**：验证必须通过消费工程（`doccheck/` 编译校验、
+   `integration/` 联网验证，或调用方项目）。
+6. **域名硬编码风险**：`ZlibHost.DEFAULT_URL` 与 `MIRRORS` 只是候选，
+   生产环境请显式传 `baseUrl`、配置 `seeds` 自动换站，或先 `resolveZlibHost()`。
 
 ---
 
@@ -557,7 +570,7 @@ cjpm --version; cjc --version
 # 2) 构建
 cd C:\Project\Cangjie\zlibraryAPI4CJ; cjpm build
 
-# 3) 单测（离线；当前基线 TOTAL 93 / PASSED 93 / FAILED 0）
+# 3) 单测（离线；当前基线 TOTAL 129 / PASSED 129 / FAILED 0）
 cjpm test --no-progress
 
 # 4) 预检（每个新文件）
@@ -566,7 +579,10 @@ python C:\Users\liluo\.agents\skills\cangjie-lang-features\scripts\check_cangjie
 # 5) 文档示例编译校验
 cd doccheck; cjpm build
 
-# 6) 回看旧版代码（迁移时对照）
+# 6) 联网集成测试（需要可用镜像；镜像见 integration/src/main.cj 的 DOMAIN）
+cd ../integration; cjpm run
+
+# 7) 回看旧版代码（迁移时对照）
 cd C:\Project\Cangjie\zlibraryAPI4CJ
 git show af70e1e:src/client.cj
 git show af70e1e:src/dataModel/bookInfo.cj
@@ -578,9 +594,46 @@ git show af70e1e:src/common/commons.cj
 | 检查 | 命令 | 结果 |
 | --- | --- | --- |
 | 静态库构建 | `cjpm build` | success |
-| 离线单测 | `cjpm test --no-progress` | TOTAL 93 / PASSED 93 / FAILED 0 |
+| 离线单测 | `cjpm test --no-progress` | TOTAL 129 / PASSED 129 / FAILED 0 |
 | 文档示例编译 | `cd doccheck && cjpm build` | success（并可直接运行 `target\release\bin\main.exe`） |
+| 联网集成测试 | `cd integration && cjpm run` | 36 passed / 0 failed，exit 0（2026-11-10，zh.eva101.ru） |
 | 新 `.cj` 文件预检 | `check_cangjie_closure.py` | `doccheck/src/main.cj` ok, exit 0 |
 
 > 单测数字是**基线**而非硬指标：新增接口应当带来新测试，这个数字只会变大；
 > 若某次提交后数字下降，先确认是不是删了测试。
+
+---
+
+## 16. 真实站点联调记录（2026-11-10，zh.eva101.ru）
+
+### 16.1 结果
+
+| 检查 | 命令 | 结果 |
+| --- | --- | --- |
+| 离线单测 | `cjpm test --no-progress` | 129 passed / 0 failed |
+| 联网集成 | `cd integration && cjpm run` | 36 passed / 0 failed，exit 0 |
+
+### 16.2 实测确认的事实（已写进模型/文档）
+
+| 事实 | 证据 | 代码处理 |
+| --- | --- | --- |
+| `POST /eapi/book/search` 表单可用，返回 `books` + `pagination`（多 `before`/`next` 字段） | search rust：total=500、100 页 | `BookPage` 读 limit/current/total_items/total_pages，忽略额外字段 |
+| `most-popular`/`similar` 列表项形状：`id,isbn,url,title,author,cover,coverData,hash` | 100/24 条样本 | `BookInfoBrief` 增加 `isbn`/`url`/`coverData`；`webpage()` 优先 `url` |
+| `/formats` 返回 `{success,books:[{id,hash,extension,filesize,filesizeString}]}`，匿名可用；部分书为空数组 | 24126585 → 16 项；17309781 → `[]` | 新增 `BookFormat` 模型，`BookApi.formats()` 改返回 `ArrayList<BookFormat>` |
+| 未登录接口返回 **HTTP 400** + `{"success":0,"error":"登录到您的账户"}` | `/user/profile`、`/book/{id}/{hash}/file`、`/user/book/saved` | `unwrap` 增加中文「登录」识别 → `NotLoggedIn` |
+| 错误密码返回 `{"success":0,"error":"电子邮件或密码错误"}` | `/user/login` | 保持 `ApiFailure`，`serverMessage` 保留原文 |
+| `/info/languages` 返回 map `{"english":"英语",...}`（175 种） | info-languages 样本 | 继续返回原始 `JsonObject`，文档给读取示例 |
+| `/info/extensions` 返回 `{"success":1,"extensions":[12 项]}` | info-extensions 样本 | 文档给 `arrayFieldOf` 读取示例 |
+| `/info/domains` 返回 `{"success":1,"domains":[{"domain":"...","contentAvailable":true,"isRedirector":false}]}` | 5 个候选域名 | `extractDomainList` 支持对象数组；换站以它为主数据源 |
+| HEAD `/` 返回 503，但 eapi 正常 | `probeSite` / `checkAccess` | 503 视为可达（原设计正确） |
+| 种子站列表里的域名从本机不可达（z-library.sk 等超时） | 换站实测 | 候选探测失败后回退种子站本身（`fallbackToSeed`） |
+| HEAD 探测偶发超过 5 秒，导致换站误判失败 | 第一次 `refreshSite(force)` 返回 false | `planSiteRefresh` 增加「种子站刚返回过域名 ⇒ 直接兜底」的短路 |
+| 一次换站耗时约 20~55 秒（最多 4 个候选 ×5s + 拉列表） | 集成测试计时 | 文档写明；`maxCandidates` 可调 |
+
+### 16.3 仍未验证的部分
+
+- 登录后的写操作（收藏/取消/发送到 Kindle/更新资料）：没有测试账号，
+  只验证了未登录时的错误映射；
+- 真实下载落盘：下载链接需要登录态 + 个人域名，没有账号无法取得；
+- 注册/找回密码/第三方 token 登录：会触发真实邮件/账号副作用，未测；
+- `/user/donations`、`/info/plans` 等形状不稳定接口：只保证原始 JSON 透传。
