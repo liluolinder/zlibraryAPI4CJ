@@ -842,8 +842,8 @@ class UnifiedErrorTest {
             hasCause = err.cause.isSome()
         }
         @Expect(kind.isSome(), true)
-        // 非 FS 异常一律按传输层归类
-        @Expect(kind.getOrThrow() == ZlibErrorKind.Transport, true)
+        // Cangjie 运行时/标准库的底层异常（非 HttpError、非 FS）归 Cangjie
+        @Expect(kind.getOrThrow() == ZlibErrorKind.Cangjie, true)
         @Expect(hasCause, true)
         client.close()
     }
@@ -869,6 +869,7 @@ class UnifiedErrorTest {
         let httpError = HttpError(ErrorKind.Connect, "Failed to resolve address x",
             url: "https://x.example/eapi/book/1", attempts: 2)
         let wrapped = ZlibError.wrapUnhandled("/book/1", httpError)
+        @Expect(wrapped.kind == ZlibErrorKind.Transport, true)
         @Expect(wrapped.detail.contains("Connect"), true)
         @Expect(wrapped.detail.contains("https://x.example/eapi/book/1"), true)
         @Expect(wrapped.detail.contains("attempts=2"), true)
@@ -896,10 +897,19 @@ class UnifiedErrorTest {
     }
 
     @TestCase
+    func testCangjieKind(): Unit {
+        let error = ZlibError.cangjie("/user/profile", "stdx 底层异常")
+        @Expect(error.kind == ZlibErrorKind.Cangjie, true)
+        @Expect(error.kind.code, 9)
+        @Expect(error.isRetryable, false)
+        @Expect(error.kind.toString(), "Cangjie")
+    }
+
+    @TestCase
     func testWrapUnhandledKeepsPath(): Unit {
         let wrapped = ZlibError.wrapUnhandled("/book/1/x", Exception("boom"))
         @Expect(wrapped.path, "/book/1/x")
-        @Expect(wrapped.kind == ZlibErrorKind.Transport, true)
+        @Expect(wrapped.kind == ZlibErrorKind.Cangjie, true)
         @Expect(wrapped.cause.isSome(), true)
     }
 }

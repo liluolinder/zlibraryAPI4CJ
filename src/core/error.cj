@@ -31,6 +31,13 @@ public enum ZlibErrorKind <: ToString & Equatable<ZlibErrorKind> {
     | Closed
     /** 本地文件系统错误（下载目录不可写、磁盘满等）。 */
     | Io
+    /**
+     * Cangjie 运行时 / 标准库抛出的底层异常（非 LinderHttp 网络层、非文件系统）。
+     *
+     * 典型来源：stdx 的 TLS/读写异常直接漏到外层、解析库内部错误等。
+     * 单独一类便于和「网络层 `Transport`」「本地 `Io`」区分开。
+     */
+    | Cangjie
 
     /** 稳定数值码（便于日志检索与相等比较）。 */
     public prop code: Int64 {
@@ -44,6 +51,7 @@ public enum ZlibErrorKind <: ToString & Equatable<ZlibErrorKind> {
                 case Forbidden => 6
                 case Closed => 7
                 case Io => 8
+                case Cangjie => 9
             }
         }
     }
@@ -67,7 +75,8 @@ public enum ZlibErrorKind <: ToString & Equatable<ZlibErrorKind> {
             "NotFound",
             "Forbidden",
             "Closed",
-            "Io"
+            "Io",
+            "Cangjie"
         ]
         names[code - 1]
     }
@@ -183,10 +192,23 @@ public class ZlibError <: Exception {
     }
 
     /**
+     * 把 Cangjie 运行时 / 标准库的底层异常包装成 `Cangjie`。
+     *
+     * 用于区分「LinderHttp 网络层失败（`Transport`）」与「Cangjie 底层意外异常
+     * （`Cangjie`）」，排查时一眼能看出问题归属。
+     */
+    public static func cangjie(path: String, detail: String,
+        cause!: ?Exception = None): ZlibError {
+        ZlibError(ZlibErrorKind.Cangjie, detail, path: path, cause: cause)
+    }
+
+    /**
      * 兜底包装：任何非 `ZlibError` 的异常都转成 `ZlibError`。
      *
-     * - 文件系统异常 → `Io`；
-     * - 其它（LinderHttp `HttpError`、stdx 的 TLS/读写异常）→ `Transport`。
+     * 分类规则（便于辨认问题归属）：
+     * - `FSException`（Cangjie `std.fs`）→ `Io`
+     * - LinderHttp `HttpError`（网络层）→ `Transport`
+     * - 其它 Cangjie 运行时 / 标准库异常 → `Cangjie`
      *
      * `detail` 的文本优先用 `HttpError.describe()`：它比 `message` 信息量大得多——
      * 带错误类别、请求 URL、实际重试次数；`StatusError` 还带状态码与响应体开头。
@@ -198,8 +220,10 @@ public class ZlibError <: Exception {
         let text = describeUnhandled(err)
         if (err is FSException) {
             ZlibError.io(path, text, cause: Some(err))
-        } else {
+        } else if (err is HttpError) {
             ZlibError.transport(path, text, cause: Some(err))
+        } else {
+            ZlibError.cangjie(path, text, cause: Some(err))
         }
     }
 

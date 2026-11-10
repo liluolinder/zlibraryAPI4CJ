@@ -22,10 +22,10 @@
 - 语言 / 编译器：仓颉 **1.2.0**（`cjc` / `cjpm`），宿主平台 `x86_64-w64-mingw32`
 - HTTP：[LinderHttp](https://gitcode.com/LiquidStudio/LinderHttp) 2.0（本地 `path` 依赖）
 - JSON：`stdx.encoding.json`（**手动容错解码，不用宏**）
-- 版本：`2.2.2`（`2.0.0` = 按 bbapi 模式重写的第二版；`2.1.0` 增加站点池 /
+- 版本：`2.3.0`（`2.0.0` = 按 bbapi 模式重写的第二版；`2.1.0` 增加站点池 /
   种子站换站 / 请求自动重试；`2.2.0` 统一异常类型——对外只抛 `ZlibError`；
-  `2.2.1` 修复启动凭证丢失；`2.2.2` 底层 `HttpError` 的 `detail` 改用
-  `describe()`（类别/URL/重试次数），见 §5.3）
+  `2.2.1` 修复启动凭证丢失；`2.2.2` 底层 `detail` 改用 `HttpError.describe()`；
+  `2.3.0` 底层异常按来源分成 `Transport` / `Io` / `Cangjie`，便于辨认）
 
 **静态库不能有 `main`**。可运行验证放在独立消费工程里
 （本仓库内的 `doccheck/` 就是这样的消费工程，见第 11 节）。
@@ -261,6 +261,10 @@ HTTP 层失败（DNS / TLS / 超时 / 池满）在 `execute` 里参与重试，
 - **未包装的底层异常也会重试**：实测 LinderHttp 偶尔把 stdx 的 TLS/读写异常
   直接漏到外层（不是 `HttpError`），`execute` 用兜底 `catch (err: Exception)`
   按传输失败处理，否则一次网络抖动就会让业务调用直接失败。
+- **底层异常分类（2.3.0）**：包装时按来源归类——`HttpError` → `Transport`、
+  `std.fs.FSException` → `Io`、其它 Cangjie 运行时/标准库异常 → `Cangjie`（新枚举，
+  code=9）。这样排查时一眼能分清「网络层 / 本地文件 / Cangjie 底层库」。
+  `shouldSwitchSite` 对 `Cangjie` 返回 false（换站不解决底层库问题）。
 - **下载单独超时**：`config.downloadTimeout`（默认 5 分钟）用于下载/取字节；
   API 的 30 秒读超时对文件太短。`ensureDirectory` 先判断再创建，可重复调用。
 - **启动凭证（2.2.1）**：`create(credential:)` 会把凭证预置进底层 Cookie 存储。
@@ -315,7 +319,7 @@ cjpm build
 
 ```powershell
 cd C:\Project\Cangjie\zlibraryAPI4CJ
-cjpm test --no-progress                       # 全部子包（当前应为 TOTAL 141 / PASSED 141）
+cjpm test --no-progress                       # 全部子包（当前应为 TOTAL 142 / PASSED 142）
 cjpm test --no-progress src\core src\model    # 只跑部分包（仍会先编译整个模块）
 ```
 
@@ -417,7 +421,7 @@ cjpm run
 - 2.2.0 统一异常类型：对外只抛 `ZlibError`，`HttpError`/stdx/文件系统异常包装进
   `cause`，调用方一个 catch 管全部（见 §5.3、`API_USAGE.md` 第 6 章）；
 - 七个业务子包全部完成（`core` / `model` / `login` / `book` / `search` / `user` / `info`），
-  每个包都有离线单测；`cjpm test --no-progress` 当前为 **TOTAL 141 / PASSED 141 / FAILED 0**。
+  每个包都有离线单测；`cjpm test --no-progress` 当前为 **TOTAL 142 / PASSED 142 / FAILED 0**。
 - `doccheck/` 已建立，`cd doccheck && cjpm build` 通过；`API_USAGE.md`
   的每个示例在 `doccheck/src/main.cj` 里都有一个对应函数。
 - 未覆盖的 eapi 能力：`/user/donations` 的形状不稳定（返回原始 JSON）；
@@ -450,3 +454,5 @@ cjpm run
 | 进程直接退出（exit -1，事件日志 `0xc0000374` ntdll 堆损坏） | 底层 stdx/LinderHttp 的 TLS 原生层问题（本机实测登录 POST 约 2/10 次，其它项目也复现）；进程级重试或升级 SDK；`ZLIB_TEST_STAGE=login` 可单独复现 |
 | 下载报 `read data timeout` | 下载 CDN 慢；调大 `config.downloadTimeout`（默认 5 分钟），API 的 30 秒读超时对文件不够 |
 | `Directory.create` 对已存在目录抛 `FSException` | 用 `ensureDirectory`（库内部已封装）；调用方自建目录前先 `exists()` |
+| 报错 `ZlibError(Cangjie)` | Cangjie 运行时/标准库异常（非网络层）；看 `detail`/`cause`，多为环境或底层依赖问题 |
+| 启动时带了凭证，第一次请求成功、之后变游客 | LinderHttp 用 Cookie 存储覆盖手写 Cookie 头；本库已用 `seedCredentialCookies` 预置、换站后补种。绕过客户端自拼请求时需自己维护 Cookie 存储 |

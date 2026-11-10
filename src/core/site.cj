@@ -580,5 +580,6 @@ internal func shouldSwitchSite(kind: ZlibErrorKind): Bool {
         case NotFound => return false
         case Closed => return false
         case Io => return false
+        case Cangjie => return false
     }
 }

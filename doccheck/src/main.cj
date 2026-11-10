@@ -301,6 +301,7 @@ func doc6_2(): Unit {
     println(ZlibError.closed().kind)
     println(ZlibError.transport("/x", "tls").kind)
     println(ZlibError.io("book/download", "磁盘写满").kind)
+    println(ZlibError.cangjie("/user/profile", "stdx 底层异常").kind)
 }
 
 func doc6_3(client: ZlibClient): Unit {
@@ -316,6 +317,7 @@ func doc6_3(client: ZlibClient): Unit {
             case ZlibErrorKind.Forbidden => println("被拒绝（可能需要个人域名）")
             case ZlibErrorKind.Transport => println("网络/域名问题，考虑换镜像")
             case ZlibErrorKind.Io => println("本地文件错误：${err.detail}")
+            case ZlibErrorKind.Cangjie => println("Cangjie 底层异常：${err.detail}")
             case ZlibErrorKind.Closed => println("客户端已关闭")
             case _ => println(err.detail)
         }

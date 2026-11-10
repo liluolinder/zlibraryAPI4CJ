@@ -28,7 +28,7 @@
   `remix_userid` / `remix_userkey` Cookie，兼容不同版本服务端。
 - **统一异常（2.2.0）**：对外只抛 `ZlibError`——传输层 `HttpError`、stdx TLS/读写异常、
   文件系统异常都在客户端边界被包装（原始异常在 `cause`），调用方一个 catch 管全部；
-  `kind` 区分未登录 / 域名失效 / 服务端业务失败 / 本地 IO。- **启动即登录（2.2.1）**：`create(credential:)` / `fromHttpClient(credential:)` 会把凭证
+  `kind` 区分未登录 / 域名失效 / 服务端业务失败 / 本地 IO / Cangjie 底层异常。- **启动即登录（2.2.1）**：`create(credential:)` / `fromHttpClient(credential:)` 会把凭证
   预置进底层 Cookie 存储，服务端下发 `Set-Cookie` 后凭证也不会丢（bbapi 曾出现
   「传了凭证，但第二个请求起变游客」的同类问题）。
 - **容错解码**：字段缺失、数字写字符串、布尔给 0/1 都不会让整页结果作废；
@@ -306,7 +306,7 @@ zlibraryAPI4CJ/
 cd C:\Project\Cangjie\zlibraryAPI4CJ
 
 cjpm build                       # 构建静态库
-cjpm test --no-progress          # 单元测试（141 个，全部离线，不联网）
+cjpm test --no-progress          # 单元测试（142 个，全部离线，不联网）
 
 cd doccheck
 cjpm build                       # 文档示例编译校验（API_USAGE.md 的全部示例）
