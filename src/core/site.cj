@@ -572,14 +572,12 @@ internal func nowMillis(): Int64 {
  */
 internal func shouldSwitchSite(kind: ZlibErrorKind): Bool {
     match (kind) {
-        case Transport => return true
         case BadResponse => return true
         case Forbidden => return true
         case ApiFailure => return false
         case NotLoggedIn => return false
         case NotFound => return false
         case Closed => return false
-        case Io => return false
         case Cangjie => return false
     }
 }

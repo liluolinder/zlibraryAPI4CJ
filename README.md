@@ -26,9 +26,9 @@
   `resolveZlibHost` / `probeSite` / `checkAccess` 手动探测入口。
 - **身份双通道**：同时发送 `remix-userid` / `remix-userkey` 请求头与
   `remix_userid` / `remix_userkey` Cookie，兼容不同版本服务端。
-- **统一异常（2.2.0）**：对外只抛 `ZlibError`——传输层 `HttpError`、stdx TLS/读写异常、
-  文件系统异常都在客户端边界被包装（原始异常在 `cause`），调用方一个 catch 管全部；
-  `kind` 区分未登录 / 域名失效 / 服务端业务失败 / 本地 IO / Cangjie 底层异常。- **启动即登录（2.2.1）**：`create(credential:)` / `fromHttpClient(credential:)` 会把凭证
+- **统一异常（对齐 bbapi）**：对外只抛 `ZlibError`——业务失败保留业务 `kind`；
+  网络（`HttpError`）、文件系统、stdx 等**底层异常统一归 `Cangjie`**，
+  原始异常在 `cause`，调用方一个 catch 管全部。- **启动即登录（2.2.1）**：`create(credential:)` / `fromHttpClient(credential:)` 会把凭证
   预置进底层 Cookie 存储，服务端下发 `Set-Cookie` 后凭证也不会丢（bbapi 曾出现
   「传了凭证，但第二个请求起变游客」的同类问题）。
 - **容错解码**：字段缺失、数字写字符串、布尔给 0/1 都不会让整页结果作废；
@@ -234,8 +234,7 @@ try {
     match (err.kind) {
         case ZlibErrorKind.NotLoggedIn => println("需要登录")
         case ZlibErrorKind.NotFound => println("书不存在：${err.serverMessage}")
-        case ZlibErrorKind.Transport => println("网络/域名问题：${err.detail}")
-        case ZlibErrorKind.Io => println("本地文件错误：${err.detail}")
+        case ZlibErrorKind.Cangjie => println("底层异常（网络/文件）：${err.detail}")
         case _ => println(err.detail)
     }
     // 排查底层网络/TLS 时才看 cause（原始 HttpError）
@@ -306,7 +305,7 @@ zlibraryAPI4CJ/
 cd C:\Project\Cangjie\zlibraryAPI4CJ
 
 cjpm build                       # 构建静态库
-cjpm test --no-progress          # 单元测试（142 个，全部离线，不联网）
+cjpm test --no-progress          # 单元测试（143 个，全部离线，不联网）
 
 cd doccheck
 cjpm build                       # 文档示例编译校验（API_USAGE.md 的全部示例）

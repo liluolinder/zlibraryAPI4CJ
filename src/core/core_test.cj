@@ -286,10 +286,9 @@ class ZlibErrorTest {
     func testKinds(): Unit {
         @Expect(ZlibErrorKind.ApiFailure == ZlibErrorKind.ApiFailure, true)
         @Expect(ZlibErrorKind.NotFound == ZlibErrorKind.ApiFailure, false)
-        @Expect(ZlibErrorKind.Transport.isRetryable, true)
         @Expect(ZlibErrorKind.NotFound.isRetryable, false)
         @Expect(ZlibErrorKind.Closed.toString(), "Closed")
-        @Expect(ZlibErrorKind.Closed.code, 7)
+        @Expect(ZlibErrorKind.Closed.code, 6)
     }
 
     @TestCase
@@ -647,7 +646,6 @@ class SwitchSiteDecisionTest {
     @TestCase
     func testDecision(): Unit {
         // 域名层面可能有问题 → 换站重试
-        @Expect(shouldSwitchSite(ZlibErrorKind.Transport), true)
         @Expect(shouldSwitchSite(ZlibErrorKind.BadResponse), true)
         @Expect(shouldSwitchSite(ZlibErrorKind.Forbidden), true)
         // 业务/凭证/资源问题 → 换站无用，直接抛
@@ -655,6 +653,7 @@ class SwitchSiteDecisionTest {
         @Expect(shouldSwitchSite(ZlibErrorKind.NotLoggedIn), false)
         @Expect(shouldSwitchSite(ZlibErrorKind.NotFound), false)
         @Expect(shouldSwitchSite(ZlibErrorKind.Closed), false)
+        @Expect(shouldSwitchSite(ZlibErrorKind.Cangjie), false)
     }
 }
 
@@ -703,17 +702,17 @@ class ClientSitesTest {
 @Test
 class RetryExecutionTest {
     @TestCase
-    func testTransportFailureRetriesUpToMaxAttempts(): Unit {
+    func testSwitchableFailureRetriesUpToMaxAttempts(): Unit {
         let client = ZlibClient.create(baseUrl: "https://a.com")
         let counter = TestCounters()
         var caught = false
         try {
             client.execute<Int64>({ host =>
                 counter.inc()
-                throw ZlibError.transport("/x", "boom")
+                throw ZlibError.badResponse("/x", "<html>blocked</html>")
             }, refreshOnFailure: true)
         } catch (err: ZlibError) {
-            caught = err.kind == ZlibErrorKind.Transport
+            caught = err.kind == ZlibErrorKind.BadResponse
         }
         @Expect(counter.value, 3) // 默认 maxAttempts = 3
         @Expect(caught, true)
@@ -793,7 +792,7 @@ class RetryExecutionTest {
         try {
             client.execute<Int64>({ host =>
                 counter.inc()
-                throw ZlibError.transport("/x", "boom")
+                throw ZlibError.badResponse("/x", "<html>blocked</html>")
             }, refreshOnFailure: true)
         } catch (_: ZlibError) {
             ()
@@ -811,7 +810,7 @@ class RetryExecutionTest {
         try {
             client.execute<Int64>({ host =>
                 counter.inc()
-                throw ZlibError.transport("/x", "boom")
+                throw ZlibError.badResponse("/x", "<html>blocked</html>")
             }, refreshOnFailure: true)
         } catch (_: ZlibError) {
             ()
@@ -857,7 +856,7 @@ class UnifiedErrorTest {
                 throw HttpError(ErrorKind.Transport, "tls boom")
             }, refreshOnFailure: true)
         } catch (err: ZlibError) {
-            wrapped = err.kind == ZlibErrorKind.Transport && err.cause.isSome()
+            wrapped = err.kind == ZlibErrorKind.Cangjie && err.cause.isSome()
         }
         @Expect(wrapped, true)
         client.close()
@@ -869,7 +868,7 @@ class UnifiedErrorTest {
         let httpError = HttpError(ErrorKind.Connect, "Failed to resolve address x",
             url: "https://x.example/eapi/book/1", attempts: 2)
         let wrapped = ZlibError.wrapUnhandled("/book/1", httpError)
-        @Expect(wrapped.kind == ZlibErrorKind.Transport, true)
+        @Expect(wrapped.kind == ZlibErrorKind.Cangjie, true)
         @Expect(wrapped.detail.contains("Connect"), true)
         @Expect(wrapped.detail.contains("https://x.example/eapi/book/1"), true)
         @Expect(wrapped.detail.contains("attempts=2"), true)
@@ -887,20 +886,33 @@ class UnifiedErrorTest {
     }
 
     @TestCase
-    func testIoKind(): Unit {
-        let error = ZlibError.io("book/download", "磁盘写满")
-        @Expect(error.kind == ZlibErrorKind.Io, true)
-        @Expect(error.kind.code, 8)
-        @Expect(error.isRetryable, false)
-        @Expect(error.cause.isNone(), true)
-        @Expect(error.kind.toString(), "Io")
+    func testCangjieRetryableFromCause(): Unit {
+        // Cangjie 类别本身不表态，由 cause 决定：可重试的 HttpError → true
+        let retryable = ZlibError.wrapUnhandled("/x",
+            HttpError(ErrorKind.Timeout, "read timeout"))
+        @Expect(retryable.kind == ZlibErrorKind.Cangjie, true)
+        @Expect(retryable.isRetryable, true)
+        let fatal = ZlibError.wrapUnhandled("/x", Exception("boom"))
+        @Expect(fatal.kind == ZlibErrorKind.Cangjie, true)
+        @Expect(fatal.isRetryable, false)
+    }
+
+    @TestCase
+    func testMessageIsPlainAndDetailHasKindPrefix(): Unit {
+        // 约定：message 纯文案；detail = "[kind] message"
+        let error = ZlibError.apiFailure("/x", "boom")
+        @Expect(error.message, "boom")
+        @Expect(error.detail, "[ApiFailure] boom")
+        // toString 里的 message 字段同样是纯文案
+        @Expect(error.toString(),
+            "ZlibError(kind=ApiFailure, path=/x, status=0, message=boom)")
     }
 
     @TestCase
     func testCangjieKind(): Unit {
         let error = ZlibError.cangjie("/user/profile", "stdx 底层异常")
         @Expect(error.kind == ZlibErrorKind.Cangjie, true)
-        @Expect(error.kind.code, 9)
+        @Expect(error.kind.code, 7)
         @Expect(error.isRetryable, false)
         @Expect(error.kind.toString(), "Cangjie")
     }

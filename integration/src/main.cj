@@ -133,13 +133,14 @@ func checkHttpErrorDetail(checks: Checks): Unit {
     } catch (err: ZlibError) {
         checks.check("detail 含底层描述前缀", err.detail.contains("底层请求失败："),
             detail: err.detail)
-        // HttpError.describe() 会带类别（Connect/Url/...）与 URL
+        // HttpError.describe() 会带错误类别（Connect/Url/Protocol/...）与 URL
         let hasKind = err.detail.contains("Connect") || err.detail.contains("Url") ||
-            err.detail.contains("Transport") || err.detail.contains("Timeout")
+            err.detail.contains("Protocol") || err.detail.contains("Timeout") ||
+            err.detail.contains("PoolBusy")
         checks.check("detail 含错误类别/URL", hasKind, detail: err.detail)
         checks.check("cause 保留原始异常", err.cause.isSome(),
             detail: err.cause.isSome().toString())
-        checks.check("包装后 kind=Transport", err.kind == ZlibErrorKind.Transport,
+        checks.check("包装后 kind=Cangjie", err.kind == ZlibErrorKind.Cangjie,
             detail: err.kind.toString())
     } finally {
         client.close()
@@ -644,7 +645,7 @@ func checkBook(checks: Checks): Unit {
 
         // 匿名访问下载信息：实测返回 HTTP 400 + {"success":0,"error":"登录到您的账户"}
         var caught = false
-        var kind = ZlibErrorKind.Transport
+        var kind = ZlibErrorKind.Cangjie
         var message = ""
         logStep("book: anonymous file()")
         try {
@@ -731,7 +732,7 @@ func checkErrorMapping(checks: Checks): Unit {
 
         var loginCaught = false
         var loginMessage = ""
-        var loginKind = ZlibErrorKind.Transport
+        var loginKind = ZlibErrorKind.Cangjie
         try {
             LoginApi.login(client, "fake@example.com", "definitely-wrong-password")
             checks.check("错误密码登录不应该成功", false)

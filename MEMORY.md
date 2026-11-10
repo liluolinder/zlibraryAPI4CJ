@@ -570,7 +570,7 @@ cjpm --version; cjc --version
 # 2) 构建
 cd C:\Project\Cangjie\zlibraryAPI4CJ; cjpm build
 
-# 3) 单测（离线；当前基线 TOTAL 142 / PASSED 142 / FAILED 0）
+# 3) 单测（离线；当前基线 TOTAL 143 / PASSED 143 / FAILED 0）
 cjpm test --no-progress
 
 # 4) 预检（每个新文件）
@@ -594,7 +594,7 @@ git show af70e1e:src/common/commons.cj
 | 检查 | 命令 | 结果 |
 | --- | --- | --- |
 | 静态库构建 | `cjpm build` | success |
-| 离线单测 | `cjpm test --no-progress` | TOTAL 142 / PASSED 142 / FAILED 0 |
+| 离线单测 | `cjpm test --no-progress` | TOTAL 143 / PASSED 143 / FAILED 0 |
 | 文档示例编译 | `cd doccheck && cjpm build` | success（并可直接运行 `target\release\bin\main.exe`） |
 | 联网集成测试 | `cd integration && cjpm run` | 36 passed / 0 failed，exit 0（2026-11-10，zh.eva101.ru） |
 | 新 `.cj` 文件预检 | `check_cangjie_closure.py` | `doccheck/src/main.cj` ok, exit 0 |
@@ -610,7 +610,7 @@ git show af70e1e:src/common/commons.cj
 
 | 检查 | 命令 | 结果 |
 | --- | --- | --- |
-| 离线单测 | `cjpm test --no-progress` | 142 passed / 0 failed |
+| 离线单测 | `cjpm test --no-progress` | 143 passed / 0 failed |
 | 联网集成（基础） | `cd integration && cjpm run` | 36 passed / 0 failed，exit 0 |
 | 联网集成（登录后链路） | `ZLIB_TEST_ONLY_AUTH=1` + `ZLIB_TEST_EMAIL/PASSWORD` | 16 passed / 0 failed（含真实下载 723637 字节） |
 | 联网集成（完整一次） | 带账号密码跑全量 | 50 passed / 0 failed，exit 0 |
@@ -766,7 +766,7 @@ store.store(sitesValue.current().url, headers.toArray())
 - 需要原始 `HttpError` 的 `kind/url/attempts` 字段时，`err.cause` 仍在；
 - 集成测试新增 `ZLIB_TEST_STAGE=httpdetail` 现场验证这段文本（4/4 通过）；
 - 单测新增 `testWrappedHttpErrorDetailUsesDescribe` / `testWrappedStatusErrorDetailHasStatusAndBody`。
-### 18.6 底层异常再细分：`Cangjie` 类型（2.3.0）
+### 18.6 底层异常再细分：`Cangjie` 类型（2.3.0，已在 2.4.0 被 18.8 取代）
 
 2.2.2 之前，所有非 `HttpError` / 非 `FSException` 的底层异常都归 `Transport`，
 日志里分不清「LinderHttp 网络层失败」和「Cangjie 运行时/标准库异常」。
@@ -783,3 +783,31 @@ store.store(sitesValue.current().url, headers.toArray())
 - 重试行为不变：`execute` 仍按传输失败重试，耗尽后才按来源包装；
 - 单测：普通 `Exception` 包装断言改为 `Cangjie`，新增 `testCangjieKind`（code=9）；
 - 文档/示例同步：API_USAGE 6.1/6.2/6.4、Agent §5.3、doccheck 6.2/6.3。
+### 18.7 文案约定：`message` 纯文案 / `detail` 带前缀（2.3.1）
+
+- `ZlibError.message`（继承自 `Exception`）= **纯文案**，不含 `"[kind] "` 前缀；
+- `ZlibError.detail = "[${kind}] " + message`，适合直接打一行日志；
+- `toString()` 改为 `ZlibError(kind=..., path=..., status=..., message=...)`，
+  其中 `message` 是纯文案（类别由 `kind=` 字段表达）；
+- 底层包装后的 `message` 同样是纯文案（如
+  `底层请求失败：Protocol [...] attempts=3: ...`），`detail` 再加类别前缀；
+- 单测 `testMessageIsPlainAndDetailHasKindPrefix` 锁定该约定（共 143 通过）。
+### 18.8 对齐 bbapi：底层统一 `Cangjie`，移除 `Transport` / `Io`（2.4.0）
+
+18.6 曾按来源把底层拆成 `Transport` / `Io` / `Cangjie`，但 bbapi 的模型只有
+`BiliErrorKind.Api` 与 `BiliErrorKind.Cangjie`：**所有**底层异常（`HttpError`、
+`FSException`、stdx）都算 `Cangjie`，具体来源看 `cause`。用户要求对齐 bbapi，
+2.4.0 回退这次拆分：
+
+- `ZlibErrorKind` 移除 `Transport`、`Io`，只保留业务类别 + `Cangjie`；
+  code 连续重排（`BadResponse`=1 … `Closed`=6，`Cangjie`=7）；
+- `wrapUnhandled` 一律返回 `ZlibError(Cangjie)`；`detail` 仍优先用
+  `HttpError.describe()`（类别/URL/重试次数）；
+- 删除 `ZlibError.transport(...)` / `ZlibError.io(...)` 工厂，保留
+  `ZlibError.cangjie(path, detail, cause!)`；
+- `ZlibError.isRetryable` 对齐 bbapi：`Cangjie` 类别看 `cause` 是否为可重试的
+  `HttpError`；业务类别沿用 `kind.isRetryable`（目前均为 false）；
+- `shouldSwitchSite` 只对 `BadResponse` / `Forbidden` 返回 true；
+- 调用方判断：`kind == Cangjie` 即底层失败，再用 `cause` 区分网络/文件/stdx；
+- 单测：原 Transport 用例改用 `BadResponse`（可换站类别）模拟重试，
+  新增 `testCangjieRetryableFromCause`；共 143 通过。

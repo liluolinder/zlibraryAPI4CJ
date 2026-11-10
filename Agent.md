@@ -22,10 +22,11 @@
 - 语言 / 编译器：仓颉 **1.2.0**（`cjc` / `cjpm`），宿主平台 `x86_64-w64-mingw32`
 - HTTP：[LinderHttp](https://gitcode.com/LiquidStudio/LinderHttp) 2.0（本地 `path` 依赖）
 - JSON：`stdx.encoding.json`（**手动容错解码，不用宏**）
-- 版本：`2.3.0`（`2.0.0` = 按 bbapi 模式重写的第二版；`2.1.0` 增加站点池 /
+- 版本：`2.4.0`（`2.0.0` = 按 bbapi 模式重写的第二版；`2.1.0` 增加站点池 /
   种子站换站 / 请求自动重试；`2.2.0` 统一异常类型——对外只抛 `ZlibError`；
   `2.2.1` 修复启动凭证丢失；`2.2.2` 底层 `detail` 改用 `HttpError.describe()`；
-  `2.3.0` 底层异常按来源分成 `Transport` / `Io` / `Cangjie`，便于辨认）
+  `2.3.1` 明确 `message`/`detail` 分工；`2.4.0` 对齐 bbapi——底层异常统一
+  归 `Cangjie`，移除 `Transport`/`Io` 两个类别）
 
 **静态库不能有 `main`**。可运行验证放在独立消费工程里
 （本仓库内的 `doccheck/` 就是这样的消费工程，见第 11 节）。
@@ -231,7 +232,7 @@ Z-Library 的字段类型会漂移（同一字段可能是数字或字符串、�
 非 JSON 响应（风控页、登录页、空响应）→ `ZlibErrorKind.BadResponse`，
 错误消息里只放**截断后的**响应片段（`truncateBytesSafe`），不要把整页 HTML 塞进异常。
 HTTP 层失败（DNS / TLS / 超时 / 池满）在 `execute` 里参与重试，
-最终由 `ZlibError.wrapUnhandled` 统一包装成 `ZlibError(Transport)`（原始 `HttpError` 在 `cause`），
+最终由 `ZlibError.wrapUnhandled` 统一包装成 `ZlibError(Cangjie)`（原始 `HttpError` 在 `cause`），
 不要在这里另造异常类型。
 
 ### 5.3 站点管理与自动重试（2.1.0）
@@ -242,8 +243,8 @@ HTTP 层失败（DNS / TLS / 超时 / 池满）在 `execute` 里参与重试，
 
 | 情况 | 行为 |
 | --- | --- |
-| 底层 `HttpError`（传输层） | 按 `config.maxAttempts` 重试；**同样会先换站再重试**（DNS 失败是最常见换站触发点）；对外被包装成 `ZlibError(Transport)` |
-| `ZlibError(Transport/BadResponse/Forbidden)` | 同上（`shouldSwitchSite` 判定） |
+| 底层 `HttpError` / 未包装异常 | 按 `config.maxAttempts` 重试；**同样会先换站再重试**（DNS 失败是最常见换站触发点）；对外统一包装成 `ZlibError(Cangjie)` |
+| `ZlibError(BadResponse/Forbidden)` | 同上（`shouldSwitchSite` 判定） |
 | `ZlibError(ApiFailure/NotLoggedIn/NotFound/Closed)` | **不重试**，原样抛出 |
 | `download/fetchBytes` | 只重试传输异常，**不换站**（下载链接是个人域名，换站无意义） |
 
@@ -261,19 +262,22 @@ HTTP 层失败（DNS / TLS / 超时 / 池满）在 `execute` 里参与重试，
 - **未包装的底层异常也会重试**：实测 LinderHttp 偶尔把 stdx 的 TLS/读写异常
   直接漏到外层（不是 `HttpError`），`execute` 用兜底 `catch (err: Exception)`
   按传输失败处理，否则一次网络抖动就会让业务调用直接失败。
-- **底层异常分类（2.3.0）**：包装时按来源归类——`HttpError` → `Transport`、
-  `std.fs.FSException` → `Io`、其它 Cangjie 运行时/标准库异常 → `Cangjie`（新枚举，
-  code=9）。这样排查时一眼能分清「网络层 / 本地文件 / Cangjie 底层库」。
-  `shouldSwitchSite` 对 `Cangjie` 返回 false（换站不解决底层库问题）。
+- **底层异常分类（2.4.0，对齐 bbapi）**：所有非业务异常统一归 `Cangjie`——
+  LinderHttp `HttpError`、`std.fs.FSException`、stdx 异常都是 `Cangjie` 一类，
+  来源看 `cause`（`HttpError` / `FSException`）；不再有 `Transport` / `Io` 类别。
+  `Cangjie.isRetryable` 由 `cause` 决定（可重试的 `HttpError` → true）；
+  `shouldSwitchSite(Cangjie) = false`（换站不解决底层问题，内部重试仍按异常类型走）。
 - **下载单独超时**：`config.downloadTimeout`（默认 5 分钟）用于下载/取字节；
   API 的 30 秒读超时对文件太短。`ensureDirectory` 先判断再创建，可重复调用。
 - **启动凭证（2.2.1）**：`create(credential:)` 会把凭证预置进底层 Cookie 存储。
   LinderHttp 在 Cookie 存储非空时会用存储内容覆盖手写的 `Cookie` 头，只靠手写头
   会在服务端下发 `Set-Cookie` 后的下一次请求丢凭证（bbapi 同类 bug）。
   换站后 `ensureCredentialCookies` 自动补种；不要绕过客户端自己拼 Cookie 头。
+- **文案约定（2.3.1）**：`ZlibError.message` 是纯文案（不含类别前缀），
+  `detail = "[kind] " + message` 才带前缀；日志用 `detail`，要服务端原文用 `message`。
 - **底层 detail（2.2.2）**：包装 `HttpError` 时 `detail` 用 `HttpError.describe()`
   而不是 `message`，文本形如
-  `[Transport] 底层请求失败：Protocol [https://x/eapi/...] attempts=3: Failed to resolve ...`；
+  `[Cangjie] 底层请求失败：Protocol [https://x/eapi/...] attempts=3: Failed to resolve ...`；
   `StatusError` 还带状态码与响应体开头；排查时仍可从 `err.cause` 拿原始 `HttpError`。
 
 > ⚠ **已知环境问题**：本机（Windows + Cangjie 1.2.0 stdx）实测登录 POST 偶发
@@ -319,7 +323,7 @@ cjpm build
 
 ```powershell
 cd C:\Project\Cangjie\zlibraryAPI4CJ
-cjpm test --no-progress                       # 全部子包（当前应为 TOTAL 142 / PASSED 142）
+cjpm test --no-progress                       # 全部子包（当前应为 TOTAL 143 / PASSED 143）
 cjpm test --no-progress src\core src\model    # 只跑部分包（仍会先编译整个模块）
 ```
 
@@ -421,7 +425,7 @@ cjpm run
 - 2.2.0 统一异常类型：对外只抛 `ZlibError`，`HttpError`/stdx/文件系统异常包装进
   `cause`，调用方一个 catch 管全部（见 §5.3、`API_USAGE.md` 第 6 章）；
 - 七个业务子包全部完成（`core` / `model` / `login` / `book` / `search` / `user` / `info`），
-  每个包都有离线单测；`cjpm test --no-progress` 当前为 **TOTAL 142 / PASSED 142 / FAILED 0**。
+  每个包都有离线单测；`cjpm test --no-progress` 当前为 **TOTAL 143 / PASSED 143 / FAILED 0**。
 - `doccheck/` 已建立，`cd doccheck && cjpm build` 通过；`API_USAGE.md`
   的每个示例在 `doccheck/src/main.cj` 里都有一个对应函数。
 - 未覆盖的 eapi 能力：`/user/donations` 的形状不稳定（返回原始 JSON）；

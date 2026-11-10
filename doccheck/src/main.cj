@@ -279,7 +279,7 @@ func doc6_1(err: ZlibError): Bool {
     if (err.kind == ZlibErrorKind.NotFound) {
         println("找不到这本书")
     }
-    err.kind == ZlibErrorKind.Transport
+    err.kind == ZlibErrorKind.Cangjie
 }
 
 func doc6_2(): Unit {
@@ -290,6 +290,8 @@ func doc6_2(): Unit {
     println("${error.isUnauthorized} ${error.isRetryable}")
     // 底层原始异常（网络层异常被包装后仍可取到，排查用）
     println("has cause=${error.cause.isSome()}")
+    // message 是纯文案；detail 才带 "[kind] " 前缀
+    println("message=${error.message} detail=${error.detail}")
 
     // 静态构造
     let custom = ZlibError(ZlibErrorKind.BadResponse, "自定义错误", path: "/x",
@@ -299,8 +301,8 @@ func doc6_2(): Unit {
     println(ZlibError.httpStatus("u", 403, "no").kind)
     println(ZlibError.notLoggedIn("/x").isUnauthorized)
     println(ZlibError.closed().kind)
-    println(ZlibError.transport("/x", "tls").kind)
-    println(ZlibError.io("book/download", "磁盘写满").kind)
+    println(ZlibError.cangjie("/x", "tls").kind)
+    println(ZlibError.cangjie("book/download", "磁盘写满").kind)
     println(ZlibError.cangjie("/user/profile", "stdx 底层异常").kind)
 }
 
@@ -315,8 +317,7 @@ func doc6_3(client: ZlibClient): Unit {
             case ZlibErrorKind.NotLoggedIn => println("请先登录：${err.detail}")
             case ZlibErrorKind.NotFound => println("资源不存在：${err.serverMessage}")
             case ZlibErrorKind.Forbidden => println("被拒绝（可能需要个人域名）")
-            case ZlibErrorKind.Transport => println("网络/域名问题，考虑换镜像")
-            case ZlibErrorKind.Io => println("本地文件错误：${err.detail}")
+            case ZlibErrorKind.Cangjie => println("底层异常（网络/文件/Cangjie）：${err.detail}")
             case ZlibErrorKind.Cangjie => println("Cangjie 底层异常：${err.detail}")
             case ZlibErrorKind.Closed => println("客户端已关闭")
             case _ => println(err.detail)

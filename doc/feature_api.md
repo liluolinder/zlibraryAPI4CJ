@@ -286,7 +286,7 @@ match (resolveZlibHost()) {
 
 1. **`success` 字段没了。** v1 里 `if (res.success == 1)` 这类判断全部删除；
    失败现在是异常。要区分「没找到」与「真失败」，catch `ZlibError` 看 `kind`
-   （`NotFound` / `NotLoggedIn` / `ApiFailure` / `BadResponse` / `Transport` / `Forbidden` / `Closed`）。
+   （`NotFound` / `NotLoggedIn` / `ApiFailure` / `BadResponse` / `Forbidden` / `Closed` / `Cangjie`；底层异常统一归 `Cangjie`）。
 2. **错误信息变结构化。** `ZlibError` 带 `kind`、`path`、`serverMessage`、`status`、`detail`；
    v1 只有 `errorInfo: ?String`。
 3. **`cookie` 参数全部删除。** 凭证在客户端里；要换身份就派生客户端。

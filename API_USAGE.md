@@ -1,6 +1,6 @@
 # zlibraryAPI4CJ API 使用说明
 
-> 版本对应：仓颉 1.2.0 / LinderHttp 2.0 / `output-type = "static"` / 库版本 `2.3.0`。
+> 版本对应：仓颉 1.2.0 / LinderHttp 2.0 / `output-type = "static"` / 库版本 `2.4.0`。
 >
 > 本文件是**面向调用方**的完整使用手册：装依赖、建客户端、拿凭证、探测站点、
 > 处理错误，然后逐个接口查参数与返回类型。
@@ -616,7 +616,7 @@ Z-Library 没有长期稳定的官方域名：主站会被封、镜像会轮换�
 ```
 请求 A ──> sites.current() = 自定义站
              │ 成功 → 返回
-             │ 失败（Transport / BadResponse / Forbidden）
+             │ 失败（HttpError / 未包装异常 / BadResponse / Forbidden）
              ▼
         refreshSite()：种子站 GET /eapi/info/domains → 候选域名 → probeSite
              │ 探到可用站
@@ -905,23 +905,21 @@ println("拿到 ${domains.size} 个候选域名")
 
 | 情况 | 是否重试 | 是否换站 | 理由 |
 | --- | --- | --- | --- |
-| `ZlibError(Transport)` | ✅ 到 `maxAttempts` 次 | ✅ | 连不上：域名失效/被墙/DNS 污染，换站最有效 |
 | `ZlibError(BadResponse)` | ✅ | ✅ | 返回 HTML 风控页，通常也是域名被针对性拦截 |
 | `ZlibError(Forbidden)` | ✅ | ✅ | 403：镜像拒绝服务或需要个人域名 |
 | `ZlibError(ApiFailure)` | ❌ | ❌ | 服务端已明确业务失败（如书不存在），换站无用 |
 | `ZlibError(NotLoggedIn)` | ❌ | ❌ | 凭证问题，换站无用 |
 | `ZlibError(NotFound)` | ❌ | ❌ | 资源不存在，换站无用 |
 | `ZlibError(Closed)` | ❌ | ❌ | 客户端已关闭，换站无用 |
-| 底层 `HttpError`（内部判断，不对外暴露） | ✅ 到 `maxAttempts` 次 | ✅（API 请求） | DNS 失败/连不上是最常见的换站触发点；先换站再重试 |
-| 未包装的底层异常（非上述两类） | ✅ 到 `maxAttempts` 次 | ✅（API 请求） | 实测 LinderHttp 偶发把 stdx 的 TLS/读写异常直接漏到外层；本质仍是传输失败，漏掉重试会让一次抖动直接变业务失败 |
+| 底层 `HttpError` / 未包装异常（内部判断） | ✅ 到 `maxAttempts` 次 | ✅（API 请求） | DNS/连接/TLS 抖动；对外统一包装成 `ZlibError(Cangjie)` |
 
 补充规则：
 
 - 次数由 `config.maxAttempts` 控制（默认 **3**，含首次；小于 1 按 1 处理），
   `config.autoRetry = false` 时等同每次只试 1 次；
 - 每次重试前**重新读** `sites.current()`，所以换站立即生效；
-- 全部尝试失败时**统一抛 `ZlibError`**，并按来源分类：`HttpError` → `Transport`、
-  `FSException` → `Io`、其它 Cangjie 底层异常 → `Cangjie`；原始异常保留在 `err.cause`；
+- 全部尝试失败时**统一抛 `ZlibError`**：业务失败保留业务 `kind`；底层异常
+  （`HttpError`、`FSException`、stdx 异常）统一归 `Cangjie`，来源看 `err.cause`；
 - 下载 / 取字节：`refreshOnFailure = false`，**不触发换站**，但 `HttpError` 与未包装异常
   仍按次数重试，并使用 `config.downloadTimeout`（默认 5 分钟）而不是 API 的 30 秒读超时；
 - 换站本身有冷却窗口（见 5.8），失败风暴不会把种子站打爆。
@@ -1010,29 +1008,26 @@ println("当前=${snapshot.currentUrl} 种子=${snapshot.seedUrls.size} 刷新=$
 | 层 | 异常类型 | 触发场景 | 典型处理 |
 | --- | --- | --- | --- |
 | 业务层 | `ZlibError` | 服务端返回 `success=0`、非 JSON 风控页、资源不存在、未登录、客户端已关闭 | 看 `kind` 决定：引导登录 / 换域名 / 重试 / 放弃 |
-| 传输层 | `ZlibError(Transport)` | DNS、TCP、TLS、超时、连接池占满；原始 `HttpError` 被包装进 `cause` | 库内已自动重试/换站；仍失败再提示用户换网络 |
-| 文件系统 | `ZlibError(Io)` | 下载目录不可写、磁盘满、路径非法 | 修正本地路径/权限 |
+| 底层（对齐 bbapi） | `ZlibError(Cangjie)` | LinderHttp `HttpError`（DNS/TLS/超时）、`FSException`（文件权限/磁盘）、stdx 异常等 | 看 `detail`；来源看 `cause`（`HttpError` / `FSException`）；库内已自动重试/换站 |
 | Cangjie 底层 | `ZlibError(Cangjie)` | Cangjie 运行时 / 标准库抛出的异常（stdx 读写、解析库内部错误等） | 看 `detail` 与 `cause`；通常是环境/底层依赖问题 |
 
 > **2.2.0 起统一异常类型**：`ZlibClient` 在所有公开边界（请求、下载、构造客户端）
 > 把 `HttpError`、stdx 的 TLS/读写异常、文件系统异常统一包装成 `ZlibError`，
 > 原始异常保留在 `err.cause`。调用方不再需要 `catch (err: HttpError)`，
-> 只写一个 `catch (err: ZlibError)` 即可。2.3.0 起底层异常再按来源细分：
-> `HttpError` → `Transport`、`FSException` → `Io`、其它 Cangjie 底层异常 → `Cangjie`。
+> 只写一个 `catch (err: ZlibError)` 即可。对齐 bbapi：底层异常（网络/文件/stdx）
+> 统一归 `Cangjie`，具体来源看 `cause`；业务失败仍用各自的业务 `kind`。
 
 ### 6.1 ZlibErrorKind
 
 | 枚举值 | `code` | `isRetryable` | 含义 |
 | --- | --- | --- | --- |
-| `Transport` | 1 | `true` | 传输层失败（DNS / 连接 / TLS / 超时） |
-| `BadResponse` | 2 | `false` | 响应不是合法 JSON 或缺约定字段（多半被风控页/登录页替换） |
-| `ApiFailure` | 3 | `false` | 服务端明确 `success = 0` 且带 `error` / `msg` |
-| `NotLoggedIn` | 4 | `false` | 未登录或凭证失效（服务端提示 `Please login` 之类） |
-| `NotFound` | 5 | `false` | 资源不存在（书被删、id/hash 不对、接口 404） |
-| `Forbidden` | 6 | `false` | 被拒绝（403 / 域名被墙 / 需要个人域名才能下载） |
-| `Closed` | 7 | `false` | 客户端已经 `close()` 仍继续使用 |
-| `Io` | 8 | `false` | 本地文件系统错误（下载目录不可写、磁盘满等） |
-| `Cangjie` | 9 | `false` | Cangjie 运行时 / 标准库的底层异常（stdx 读写、解析库内部错误等；非 LinderHttp 网络层、非文件系统） |
+| `BadResponse` | 1 | `false` | 响应不是合法 JSON 或缺约定字段（多半被风控页/登录页替换） |
+| `ApiFailure` | 2 | `false` | 服务端明确 `success = 0` 且带 `error` / `msg` |
+| `NotLoggedIn` | 3 | `false` | 未登录或凭证失效（服务端提示 `Please login` 之类） |
+| `NotFound` | 4 | `false` | 资源不存在（书被删、id/hash 不对、接口 404） |
+| `Forbidden` | 5 | `false` | 被拒绝（403 / 域名被墙 / 需要个人域名才能下载） |
+| `Closed` | 6 | `false` | 客户端已经 `close()` 仍继续使用 |
+| `Cangjie` | 7 | 看 `cause` | **所有底层异常**（`HttpError` / `FSException` / stdx 等；对齐 bbapi）；来源看 `cause` |
 
 `ZlibErrorKind` 是无参枚举，但显式实现了 `Equatable` 与 `==` / `!=`，
 所以可以直接比较：
@@ -1052,9 +1047,10 @@ if (err.kind == ZlibErrorKind.NotFound) {
 | `serverMessage` | `String` | 服务端返回的 `error` / `msg` 原文；非业务错误时为空 |
 | `status` | `UInt16` | 触发错误时的 HTTP 状态码；未知为 0 |
 | `cause` | `?Exception` | 被包装的原始异常（`HttpError` / stdx 异常 / 文件系统异常）；排查底层细节用 |
-| `detail` | `String` | 人类可读描述（已带类别前缀；底层异常被包装时内含 `HttpError.describe()` 的类别/URL/重试次数，`StatusError` 还带状态码与响应体开头） |
+| `message` | `String` | **纯文案**（来自 `Exception`，不含类别前缀） |
+| `detail` | `String` | **带类别前缀**：`"[${kind}] " + message`；底层异常被包装时内含 `HttpError.describe()` 的类别/URL/重试次数，`StatusError` 还带状态码与响应体开头 |
 | `isUnauthorized` | `Bool` | 是否未登录 |
-| `isRetryable` | `Bool` | 是否值得重试（等价于 `kind.isRetryable`） |
+| `isRetryable` | `Bool` | 是否值得重试；`Cangjie` 类别由 `cause` 决定（可重试的 `HttpError` → true） |
 
 静态构造（需要自己抛同类错误时用）：
 
@@ -1066,10 +1062,9 @@ if (err.kind == ZlibErrorKind.NotFound) {
 | `ZlibError.httpStatus(path, status, preview)` | 下载等二进制请求遇到非 2xx |
 | `ZlibError.notLoggedIn(path)` | 需要登录却没有凭证 |
 | `ZlibError.closed()` | 客户端已关闭 |
-| `ZlibError.transport(path, detail, cause!)` | 包装传输层失败 |
-| `ZlibError.io(path, detail, cause!)` | 包装本地文件系统失败 |
+| `ZlibError.cangjie(path, detail, cause!)` | 包装底层异常（网络/文件/stdx 统一归 Cangjie） |
 | `ZlibError.cangjie(path, detail, cause!)` | 包装 Cangjie 运行时/标准库底层异常 |
-| `ZlibError.wrapUnhandled(path, err)` | 兜底：任意异常分类包装（`HttpError` → `Transport`、`FSException` → `Io`、其它 Cangjie 异常 → `Cangjie`） |
+| `ZlibError.wrapUnhandled(path, err)` | 兜底：任意底层异常 → `Cangjie`（原始异常放进 `cause`） |
 
 ### 6.3 标准捕获写法（一个 catch）
 
@@ -1082,8 +1077,7 @@ try {
         case ZlibErrorKind.NotLoggedIn => println("请先登录：${err.detail}")
         case ZlibErrorKind.NotFound => println("资源不存在：${err.serverMessage}")
         case ZlibErrorKind.Forbidden => println("被拒绝（可能需要个人域名）")
-        case ZlibErrorKind.Transport => println("网络/域名问题，考虑换镜像")
-        case ZlibErrorKind.Io => println("本地文件错误：${err.detail}")
+        case ZlibErrorKind.Cangjie => println("底层异常（网络/文件）：${err.detail}")
         case ZlibErrorKind.Cangjie => println("Cangjie 底层异常：${err.detail}")
         case ZlibErrorKind.Closed => println("客户端已关闭")
         case _ => println(err.detail)
@@ -1104,14 +1098,17 @@ try {
 | `success=0` + 英文文案 | `ZlibError(ApiFailure)` | 看 `serverMessage` 原文 |
 | 书详情 404 | `ZlibError(NotFound)` | id/hash 不匹配或书已删 |
 | 下载 403 | `ZlibError(Forbidden)` | 链接过期/需要个人域名；重新 `BookApi.file()` |
-| 请求卡住/超时 | `ZlibError(Transport)`（`cause` 是 `HttpError`） | 库内已重试；`err.isRetryable` 为 true，可换网络再试 |
-| 下载写盘失败 | `ZlibError(Io)` | 检查目录权限/磁盘；`cause` 是 `FSException` |
+| 请求卡住/超时 | `ZlibError(Cangjie)`（`cause` 是 `HttpError`） | 库内已重试；`err.isRetryable` 为 true，可换网络再试 |
+| 下载写盘失败 | `ZlibError(Cangjie)`（`cause` 是 `FSException`） | 检查目录权限/磁盘 |
 | 底层 Cangjie 异常（如 stdx 读写报错） | `ZlibError(Cangjie)` | 看 `detail`/`cause`；多为环境或底层依赖问题，重试/升级依赖 |
 | 关闭后继续用 | `ZlibError(Closed)` | 不要把 `client` 用在 `close()` 之后 |
 
 > 错误的 `toString()` 形如
-> `ZlibError(kind=NotFound, path=/book/1/x, status=0, message=[NotFound] ...)`，
+> `ZlibError(kind=NotFound, path=/book/1/x, status=0, message=资源不存在...)`，
 > 直接打进日志即可，不会泄露凭证。
+>
+> 文案约定：`err.message` 是纯文案；`err.detail = "[kind] " + message` 才带前缀。
+> 日志/用户提示用 `detail`，需要服务端原文或自己做二次封装时用 `message`。
 
 ---
 ## 7. 接口速查表
