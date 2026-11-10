@@ -10,7 +10,8 @@
 
 > 本库不是 Z-Library 官方项目。接口路径与字段来自社区逆向文档，
 > 域名与字段随时可能变化；使用前请阅读文末的[免责声明](#免责声明)。
-> 2026-11-10 已在 `https://zh.eva101.ru` 做过真实站点联调（`integration/` 36/36 通过）。
+> 2026-11-10 已在 `https://zh.eva101.ru` 做过真实站点联调（`integration/` 36/36 通过；
+> 登录后链路 16/16 通过，含真实下载落盘）。
 
 ---
 
@@ -301,13 +302,20 @@ zlibraryAPI4CJ/
 cd C:\Project\Cangjie\zlibraryAPI4CJ
 
 cjpm build                       # 构建静态库
-cjpm test --no-progress          # 单元测试（129 个，全部离线，不联网）
+cjpm test --no-progress          # 单元测试（131 个，全部离线，不联网）
 
 cd doccheck
 cjpm build                       # 文档示例编译校验（API_USAGE.md 的全部示例）
 
 cd ../integration
 cjpm run                         # 真实网络集成测试（2026-11-10 在 zh.eva101.ru 实测 36/36 通过）
+
+# 可选：登录后链路（profile / 收藏 / 推荐 / 下载历史 / 换下载链接 / 真实下载）
+# 账号密码只放环境变量，不要写进仓库；真实下载会消耗 1 次每日配额
+$env:ZLIB_TEST_EMAIL="you@example.org"
+$env:ZLIB_TEST_PASSWORD="***"
+$env:ZLIB_TEST_DOWNLOAD="1"      # 不要真下载就省略
+cjpm run
 ```
 
 单元测试只覆盖「不联网就能证明」的部分（纯函数、固定 JSON 样本解码、参数构造）。
@@ -326,7 +334,7 @@ cjpm run                         # 真实网络集成测试（2026-11-10 在 zh.
 | [`doc/feature_api.md`](doc/feature_api.md) | 从 v1 迁移的开发者 | 旧 API → 新 API 对照表、迁移步骤、注意事项 |
 | [`Agent.md`](Agent.md) | 接手本库的开发者 | 硬约束、子包依赖方向、API 设计约定、新增接口流程、排错表 |
 | [`MEMORY.md`](MEMORY.md) | 接手本库的开发者 | 旧版为何编译不过、域名/百分号/字段漂移等踩坑证据 |
-| [`integration/`](integration) | 维护者 / CI | 真实网络集成测试：接口可用性、错误映射、自动换站与重试（`cjpm run`） |
+| [`integration/`](integration) | 维护者 / CI | 真实网络集成测试：接口可用性、错误映射、自动换站、登录后链路与下载（`cjpm run`） |
 
 ---
 

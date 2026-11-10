@@ -761,6 +761,29 @@ class RetryExecutionTest {
     }
 
     @TestCase
+    func testUnwrappedTransportExceptionIsRetried(): Unit {
+        // 实测 LinderHttp 偶发把底层 stdx 异常直接漏到外层（不是 HttpError）：
+        // 这类本质仍是传输失败，应当重试，而不是一次抖动就失败。
+        let client = ZlibClient.create(baseUrl: "https://a.com")
+        let counter = TestCounters()
+        var result: Int64 = 0
+        try {
+            result = client.execute<Int64>({ host =>
+                counter.inc()
+                if (counter.value == 1) {
+                    throw Exception("read response timeout and the connection is closed")
+                }
+                7
+            }, refreshOnFailure: true)
+        } catch (_: Exception) {
+            result = -1
+        }
+        @Expect(counter.value, 2)
+        @Expect(result, 7)
+        client.close()
+    }
+
+    @TestCase
     func testAutoRetryCanBeDisabled(): Unit {
         let config = ZlibClientConfig()
         config.autoRetry = false

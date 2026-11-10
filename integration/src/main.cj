@@ -15,10 +15,21 @@
  * `InfoApi`/`probeSite` 相关检查看域名是否还通；域名换了就改 `DOMAIN`。
  *
  * 验收：`cjpm run` 输出 `RESULT: PASSED=n FAILED=0` 且退出码 0。
+ *
+ * 可选环境变量（账号密码只放环境变量，绝不写进仓库）：
+ *   ZLIB_TEST_EMAIL / ZLIB_TEST_PASSWORD
+ *       登录后链路：登录 → profile → 收藏/推荐/历史 → 收藏/取消收藏 → 换下载链接
+ *       →（可选）真实下载并清理。
+ *   ZLIB_TEST_ONLY_AUTH=1        只跑登录后链路（跳过探测/换站等前置检查）
+ *   ZLIB_TEST_STAGE=login|token|read|write|file|cleanup
+ *       分段调试；cleanup 用于清理被中断的收藏测试留下的书
+ *   ZLIB_TEST_DOWNLOAD=1         真正下载一个文件（消耗 1 次每日配额，默认跳过）
  */
 package zlibraryAPI4CJ_integration
 
 import std.collection.*
+import std.env.*
+import std.fs.*
 import std.time.*
 import stdx.encoding.json.*
 import linderHttp.*
@@ -68,18 +79,310 @@ class Checks {
 }
 
 main(): Int64 {
+    logStep("main start")
     println("=== zlibraryAPI4CJ live integration ===")
     println("domain: ${DOMAIN}")
     println("")
 
     let checks = Checks()
+    // 只调试登录后链路时设 ZLIB_TEST_ONLY_AUTH=1（跳过较慢的换站等前置检查）
+    var onlyAuth = false
+    if (let Some(flag) <- getVariable("ZLIB_TEST_ONLY_AUTH")) {
+        onlyAuth = flag.trimAscii() == "1"
+    }
+    if (onlyAuth) {
+        println("[MODE] 只跑登录后链路")
+        checkAuthenticatedFromEnv(checks)
+        return checks.summary()
+    }
     checkProbe(checks)
     checkSearch(checks)
     checkBook(checks)
     checkInfo(checks)
     checkErrorMapping(checks)
     checkAutoSwitch(checks)
+    // 登录后链路：只有设置了 ZLIB_TEST_EMAIL / ZLIB_TEST_PASSWORD 才执行，
+    // 避免把真实账号写进仓库（见 integration/README 说明）。
+    checkAuthenticatedFromEnv(checks)
     checks.summary()
+}
+
+// ---------------------------------------------------------------------------
+// 登录后链路（可选）：邮箱密码登录 → profile → 收藏/取消收藏 → 下载 → 清理
+// ---------------------------------------------------------------------------
+
+func checkAuthenticatedFromEnv(checks: Checks): Unit {
+    let email = getVariable("ZLIB_TEST_EMAIL")
+    let password = getVariable("ZLIB_TEST_PASSWORD")
+    match (email) {
+        case Some(mail) =>
+            match (password) {
+                case Some(pwd) => checkAuthenticated(checks, mail, pwd)
+                case None => println("[SKIP] 未设置 ZLIB_TEST_PASSWORD，跳过登录后链路")
+            }
+        case None => println("[SKIP] 未设置 ZLIB_TEST_EMAIL，跳过登录后链路")
+    }
+}
+
+func checkAuthenticated(checks: Checks, email: String, password: String): Unit {
+    let stage = authStage()
+    logStep("checkAuthenticated start, stage=${stage}")
+    // 登录后链路会下载文件：读/总超时放宽（下载本身用 config.downloadTimeout）
+    // 实测该镜像偶发 read timeout，API 请求保留自动重试（maxAttempts=3）
+    let config = ZlibClientConfig()
+    config.readTimeout = Duration.second * 45
+    config.totalTimeout = Duration.second * 180
+    config.maxAttempts = 3
+    config.downloadTimeout = Duration.second * 90
+    let guest = ZlibClient.create(baseUrl: DOMAIN, seeds: [DOMAIN], config: config)
+    try {
+        // 1) 邮箱 + 密码登录（不打印密码，邮箱只打印掩码）
+        logStep("login begin")
+        let result = LoginApi.login(guest, email, password)
+        checks.check("邮箱密码登录成功", result.user.id > 0,
+            detail: "uid=${result.user.id} email=${maskEmail(result.user.email)}")
+        checks.check("登录返回可用凭证", result.credential.isLoggedIn,
+            detail: "userId=${result.credential.userId}")
+        checks.check("下载配额可读", result.user.downloadsLimit > 0,
+            detail: "今日剩余 ${result.user.downloadsLeft()}/${result.user.downloadsLimit}")
+        logStep("login done, uid=${result.user.id}")
+        if (stage == "login") {
+            return
+        }
+
+        // 2) 派生登录态客户端（与 guest 共享连接池）
+        let client = result.withClient(guest)
+
+        // 2.1) 清理被中断的测试留下的收藏痕迹（仅在 ZLIB_TEST_STAGE=cleanup 时执行）
+        if (stage == "cleanup") {
+            let artifactId: Int64 = 17309781
+            let before = UserApi.saved(client, page: 1, limit: 20).pagination.totalItems
+            let detail = BookApi.info(client, artifactId, "625607")
+            if (detail.saved()) {
+                BookApi.unsave(client, artifactId)
+            }
+            let after = UserApi.saved(client, page: 1, limit: 20).pagination.totalItems
+            checks.check("清理测试遗留收藏", !detail.saved() || after < before,
+                detail: "收藏数 before=${before} after=${after} artifact=${artifactId}")
+            return
+        }
+
+        // 3) 用返回的 remix 凭证再登录一次（不重复密码，验证 token 登录路径）
+        logStep("token login begin")
+        let tokenSession = LoginApi.loginWithToken(guest, result.user.id,
+            result.credential.userKey)
+        checks.check("remix 凭证登录（loginWithToken）", tokenSession.credential.isLoggedIn,
+            detail: "uid=${tokenSession.user.id}")
+        logStep("token login done")
+        if (stage == "token") {
+            return
+        }
+
+        // 4) profile / 只读接口
+        logStep("read begin")
+        let profile = UserApi.profile(client)
+        checks.check("登录后 profile 成功", profile.id == result.user.id,
+            detail: "name=${profile.name} 剩余下载=${profile.downloadsLeft()}")
+        let page = SearchApi.search(client, "rust", limit: 3)
+        checks.check("登录态搜索可用", page.size() > 0, detail: "${page.size()} 条")
+        logStep("saved/recommended/downloaded begin")
+        let saved = UserApi.saved(client, page: 1, limit: 5)
+        checks.check("收藏列表可读", true,
+            detail: "本页 ${saved.size()} 本 / 共 ${saved.pagination.totalItems} 本")
+        let recommended = UserApi.recommended(client)
+        checks.check("个性化推荐可读", recommended.size > 0, detail: "${recommended.size} 本")
+        let downloaded = UserApi.downloaded(client, page: 1, limit: 5)
+        checks.check("下载历史可读", true,
+            detail: "本页 ${downloaded.size()} 本 / 共 ${downloaded.pagination.totalItems} 本")
+        logStep("read done")
+        if (stage == "read") {
+            return
+        }
+
+        // 5) 收藏 / 取消收藏（可逆；如果该书本来就已收藏则跳过，避免改坏用户数据）
+        logStep("save/unsave begin")
+        checkSaveUnsave(checks, client)
+        logStep("save/unsave done")
+        if (stage == "write") {
+            return
+        }
+
+        // 6) 换下载链接 →（可选）真正下载 → 校验 → 清理
+        logStep("download-link begin")
+        checkDownload(checks, client)
+        logStep("download-link done")
+
+        // 7) Cookie 回捞（信息性输出，不参与断言：不同服务端是否 Set-Cookie 不一致）
+        println("       登录后 credentialFromCookies().isLoggedIn=" +
+            "${client.credentialFromCookies().isLoggedIn}")
+    } catch (err: ZlibError) {
+        logStep("EXCEPTION ZlibError: ${err}")
+        checks.check("登录后链路", false, detail: err.toString())
+    } catch (err: Exception) {
+        logStep("EXCEPTION: ${err}")
+        checks.check("登录后链路", false, detail: err.toString())
+    } finally {
+        logStep("checkAuthenticated end")
+        guest.close()
+    }
+}
+
+func checkSaveUnsave(checks: Checks, client: ZlibClient): Unit {
+    let page = SearchApi.search(client, "rust", limit: 5)
+    let book = match (page.first()) {
+        case Some(value) => value
+        case None => return
+    }
+    let detail = BookApi.info(client, book.id, book.hash)
+    logStep("save/unsave: book id=${book.id} alreadySaved=${detail.saved()}")
+    if (detail.saved()) {
+        // 用户自己的收藏，不做写操作
+        checks.check("收藏/取消收藏（跳过：该书本来就在收藏里）", true,
+            detail: "id=${book.id}")
+        return
+    }
+    BookApi.save(client, book.id)
+    var savedNow = BookApi.info(client, book.id, book.hash).saved()
+    if (!savedNow) {
+        sleep(Duration.second * 2)
+        savedNow = BookApi.info(client, book.id, book.hash).saved()
+    }
+    checks.check("收藏成功（详情回显已收藏）", savedNow, detail: "id=${book.id}")
+
+    BookApi.unsave(client, book.id)
+    var unsaved = !BookApi.info(client, book.id, book.hash).saved()
+    if (!unsaved) {
+        sleep(Duration.second * 2)
+        unsaved = !BookApi.info(client, book.id, book.hash).saved()
+    }
+    checks.check("取消收藏成功（状态已还原）", unsaved, detail: "id=${book.id}")
+}
+
+func checkDownload(checks: Checks, client: ZlibClient): Unit {
+    let me = UserApi.profile(client)
+    if (me.downloadsLeft() <= 0) {
+        checks.check("下载测试（跳过：今日下载配额已用完）", true,
+            detail: "limit=${me.downloadsLimit} today=${me.downloadsToday}")
+        return
+    }
+
+    // 从热门榜里挑一本有可用格式的书，并选其中最小的文件（少占带宽/配额）
+    var chosen: ?BookFormat = None
+    let popular = SearchApi.mostPopular(client)
+    var index: Int64 = 0
+    while (index < popular.size && index < 2) {
+        let brief = popular[index]
+        println("       扫描格式：id=${brief.id} hash=${brief.hash} ...")
+        let formats = BookApi.formats(client, brief.id, brief.hash)
+        println("       该书可用格式：${formats.size} 个")
+        for (format in formats) {
+            if (format.filesize <= 0) {
+                continue
+            }
+            chosen = match (chosen) {
+                case Some(current) => if (format.filesize < current.filesize) {
+                    Some(format)
+                } else {
+                    Some(current)
+                }
+                case None => Some(format)
+            }
+        }
+        index++
+    }
+    let target = match (chosen) {
+        case Some(value) => value
+        case None =>
+            checks.check("找到可下载格式", false)
+            return
+    }
+    checks.check("找到可下载格式", true,
+        detail: "${target.extension} ${target.sizeText()} id=${target.id}")
+
+    let info = BookApi.file(client, target.id, target.hash)
+    checks.check("file() 返回可用下载链接", info.available(), detail: info.fileName())
+    if (!info.available()) {
+        return
+    }
+    // 下载走独立域名/CDN（不是站点域名，也不会换站）；打印主机便于诊断
+    println("       下载主机: ${hostOf(info.downloadLink)}")
+    logStep("file() ok host=${hostOf(info.downloadLink)} name=${info.fileName()}")
+    if (authStage() == "file") {
+        return
+    }
+
+    // 真正下载会消耗 1 次每日配额且依赖下载域名可达，默认不跑；
+    // 需要完整验证时设置环境变量 ZLIB_TEST_DOWNLOAD=1。
+    var doDownload = false
+    if (let Some(flag) <- getVariable("ZLIB_TEST_DOWNLOAD")) {
+        doDownload = flag.trimAscii() == "1"
+    }
+    if (!doDownload) {
+        checks.check("下载测试（跳过：未设置 ZLIB_TEST_DOWNLOAD=1）", true,
+            detail: "file() 链接已获取，实际下载未执行")
+        return
+    }
+
+    let dirName = "target\\authenticated_downloads"
+    let dir = Path(dirName)
+    if (!exists(dir)) {
+        Directory.create(dir, recursive: true)
+    }
+    let before = UserApi.profile(client).downloadsLeft()
+    let bytes = BookApi.download(client, info, dir, overwrite: true)
+    let after = UserApi.profile(client).downloadsLeft()
+    let targetPath = dir.join(info.fileName())
+    checks.check("下载字节>0", bytes > 0,
+        detail: "${bytes} 字节 → ${dirName}/${info.fileName()}")
+    checks.check("文件已落盘", exists(targetPath), detail: "${dirName}/${info.fileName()}")
+    checks.check("下载配额扣减（前后对比）", after <= before,
+        detail: "下载前剩余 ${before}，下载后剩余 ${after}")
+
+    // 不在工作区留受版权保护的文件
+    removeIfExists(targetPath)
+    checks.check("已清理下载文件", !exists(targetPath), detail: "${dirName}/${info.fileName()}")
+}
+
+/** 邮箱掩码：只保留前两位与 @ 之后部分，避免日志泄露完整邮箱。 */
+func maskEmail(email: String): String {
+    var result = "***"
+    if (let Some(index) <- email.indexOf("@")) {
+        if (index > 2) {
+            result = "${email[0..2]}***${email[index..email.size]}"
+        } else {
+            result = "***${email[index..email.size]}"
+        }
+    }
+    result
+}
+
+/** 只取 URL 的 `scheme://host` 部分（用于打印下载主机，不泄露 token/路径）。 */
+func hostOf(url: String): String {
+    let schemeParts = url.split("://")
+    if (schemeParts.size < 2) {
+        return url
+    }
+    let pathParts = schemeParts[1].split("/")
+    pathParts[0]
+}
+
+/**
+ * 把步骤写进 `integration/target/auth_debug.log`。
+ *
+ * 为什么不用 println：Windows 上 stdout 被重定向时会缓冲，进程异常退出时
+ * 日志会整段丢失；File.appendTo 每次调用即落盘，能定位「崩在哪一步」。
+ */
+func logStep(text: String): Unit {
+    File.appendTo(Path("target\\auth_debug.log"), "[STEP] ${text}\n".toArray())
+}
+
+/** 登录链路的分段调试开关（ZLIB_TEST_STAGE=login/token/read/write/file/all）。 */
+func authStage(): String {
+    var stage = "all"
+    if (let Some(value) <- getVariable("ZLIB_TEST_STAGE")) {
+        stage = value.trimAscii()
+    }
+    stage
 }
 
 // ---------------------------------------------------------------------------
@@ -87,9 +390,17 @@ main(): Int64 {
 // ---------------------------------------------------------------------------
 
 func checkProbe(checks: Checks): Unit {
-    let probe = probeSite(DOMAIN, timeoutSeconds: 15)
+    var probe = probeSite(DOMAIN, timeoutSeconds: 15)
+    // 网络偶发抖动：失败时重试两次再判定
+    var probeAttempt: Int64 = 0
+    while (!probe.reachable && probeAttempt < 2) {
+        sleep(Duration.second * 2)
+        probe = probeSite(DOMAIN, timeoutSeconds: 15)
+        probeAttempt++
+    }
     // 该镜像 HEAD / 返回 503（维护页）但 eapi 正常，所以 503 也算可达
-    checks.check("probeSite 可达", probe.reachable, detail: "status=${probe.status}")
+    checks.check("probeSite 可达", probe.reachable,
+        detail: "status=${probe.status} attempts=${probeAttempt + 1}")
     // 网络偶发抖动：最多重试 3 次再判定（HEAD 有时会慢到超过默认超时）
     var access = false
     var attempt: Int64 = 0
@@ -102,9 +413,16 @@ func checkProbe(checks: Checks): Unit {
     }
     checks.check("checkAccess", access, detail: "url=${probe.url} attempts=${attempt}")
     let resolved = resolveZlibHost(candidates: [DOMAIN])
-    checks.check("resolveZlibHost 命中", resolved.isSome(),
-        detail: if (resolved.isSome()) {
-            resolved.getOrThrow().url
+    var resolvedHost = resolved
+    var resolveAttempt: Int64 = 0
+    while (resolvedHost.isNone() && resolveAttempt < 2) {
+        sleep(Duration.second * 2)
+        resolvedHost = resolveZlibHost(candidates: [DOMAIN])
+        resolveAttempt++
+    }
+    checks.check("resolveZlibHost 命中", resolvedHost.isSome(),
+        detail: if (resolvedHost.isSome()) {
+            resolvedHost.getOrThrow().url
         } else {
             "None"
         })

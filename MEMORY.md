@@ -570,7 +570,7 @@ cjpm --version; cjc --version
 # 2) 构建
 cd C:\Project\Cangjie\zlibraryAPI4CJ; cjpm build
 
-# 3) 单测（离线；当前基线 TOTAL 129 / PASSED 129 / FAILED 0）
+# 3) 单测（离线；当前基线 TOTAL 131 / PASSED 131 / FAILED 0）
 cjpm test --no-progress
 
 # 4) 预检（每个新文件）
@@ -594,7 +594,7 @@ git show af70e1e:src/common/commons.cj
 | 检查 | 命令 | 结果 |
 | --- | --- | --- |
 | 静态库构建 | `cjpm build` | success |
-| 离线单测 | `cjpm test --no-progress` | TOTAL 129 / PASSED 129 / FAILED 0 |
+| 离线单测 | `cjpm test --no-progress` | TOTAL 131 / PASSED 131 / FAILED 0 |
 | 文档示例编译 | `cd doccheck && cjpm build` | success（并可直接运行 `target\release\bin\main.exe`） |
 | 联网集成测试 | `cd integration && cjpm run` | 36 passed / 0 failed，exit 0（2026-11-10，zh.eva101.ru） |
 | 新 `.cj` 文件预检 | `check_cangjie_closure.py` | `doccheck/src/main.cj` ok, exit 0 |
@@ -610,8 +610,10 @@ git show af70e1e:src/common/commons.cj
 
 | 检查 | 命令 | 结果 |
 | --- | --- | --- |
-| 离线单测 | `cjpm test --no-progress` | 129 passed / 0 failed |
-| 联网集成 | `cd integration && cjpm run` | 36 passed / 0 failed，exit 0 |
+| 离线单测 | `cjpm test --no-progress` | 131 passed / 0 failed |
+| 联网集成（基础） | `cd integration && cjpm run` | 36 passed / 0 failed，exit 0 |
+| 联网集成（登录后链路） | `ZLIB_TEST_ONLY_AUTH=1` + `ZLIB_TEST_EMAIL/PASSWORD` | 16 passed / 0 failed（含真实下载 723637 字节） |
+| 联网集成（完整一次） | 带账号密码跑全量 | 50 passed / 0 failed，exit 0 |
 
 ### 16.2 实测确认的事实（已写进模型/文档）
 
@@ -629,11 +631,28 @@ git show af70e1e:src/common/commons.cj
 | 种子站列表里的域名从本机不可达（z-library.sk 等超时） | 换站实测 | 候选探测失败后回退种子站本身（`fallbackToSeed`） |
 | HEAD 探测偶发超过 5 秒，导致换站误判失败 | 第一次 `refreshSite(force)` 返回 false | `planSiteRefresh` 增加「种子站刚返回过域名 ⇒ 直接兜底」的短路 |
 | 一次换站耗时约 20~55 秒（最多 4 个候选 ×5s + 拉列表） | 集成测试计时 | 文档写明；`maxCandidates` 可调 |
+| 登录成功返回 `user`（id/email/remix_userkey/downloads_today/limit）；`loginWithToken` 用 remix 凭证可直接复用 | 真实账号登录 | 现有 `LoginApi`/`ZlibCredential` 直接可用，无需改 |
+| profile / 收藏 / 推荐 / 下载历史 / 收藏 / 取消收藏 全部可正常调用 | 真实账号 16/16 | 未改接口；写操作测试做成「原本未收藏才收藏、随后取消」 |
+| `/book/{id}/{hash}/file` 返回签名链接，主机是 **dln1.ncdn.ec**（Cloudflare，与站点域名不同） | 实测 | 下载用独立 `fileHeaders`，不带 remix 头；真实下载 723637 字节成功 |
+| 下载超过 30 秒读超时会 `read data timeout` | 首次下载失败 | 新增 `config.downloadTimeout`（默认 5 分钟），`download`/`fetchBytes` 使用它 |
+| `Directory.create(dir, recursive: true)` 对**已存在目录**抛 `FSException` | 下载到已存在目录时复现 | 新增内部 `ensureDirectory`（先 `exists` 再建，幂等），`BookApi.download` 改用它；补单测 |
+| LinderHttp 偶发把底层 stdx 异常直接漏到外层（如 `read response timeout and the connection is closed`） | 收藏请求偶发失败 | `execute` 增加兜底 `catch (Exception)`：按传输失败重试+换站；补单测 |
+| 登录 POST 偶发进程直接崩溃：exit -1，事件日志 `0xc0000374`（ntdll 堆损坏） | 5~10 次里约 2 次；同机另一项目也复现 | 判断为底层 stdx/TLS 原生问题，非本库逻辑；集成测试用进程级重试/分段复现 |
 
-### 16.3 仍未验证的部分
+### 16.3 踩坑修复（本轮联调直接改出的代码）
 
-- 登录后的写操作（收藏/取消/发送到 Kindle/更新资料）：没有测试账号，
-  只验证了未登录时的错误映射；
-- 真实下载落盘：下载链接需要登录态 + 个人域名，没有账号无法取得；
+1. **`ensureDirectory`**：`Directory.create` 对已存在目录抛异常，改为先 `exists` 再建；
+   `BookApi.download`/`downloadBook` 都走它，单测覆盖「连续调用两次」。
+2. **`execute` 兜底重试**：新增 `catch (err: Exception)` 分支，把未包装的底层网络异常
+   视作瞬时故障重试（API 请求还会换站），避免一次抖动直接失败。
+3. **`config.downloadTimeout`**：下载/取字节用 5 分钟读写超时，与 API 的 30 秒分开。
+4. **集成测试安全**：账号密码只走环境变量；写操作先记录原状态（已收藏则跳过），
+   测试后取消收藏还原；`ZLIB_TEST_STAGE=cleanup` 用于清理被中断测试留下的收藏。
+
+### 16.4 仍未验证的部分
+
+- 登录后的其它写操作：发送到 Kindle / 更新资料 / 隐藏 banner / 捐赠等会改账号状态的接口；
+- 真实下载的「配额扣减」时序：实测下载前后 `downloadsLeft()` 都是 9（服务端可能延迟结算），
+  只断言了「不增加」；
 - 注册/找回密码/第三方 token 登录：会触发真实邮件/账号副作用，未测；
 - `/user/donations`、`/info/plans` 等形状不稳定接口：只保证原始 JSON 透传。

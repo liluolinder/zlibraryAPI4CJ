@@ -401,7 +401,9 @@ public class ZlibClient <: Resource & ToString {
     public func download(url: String, path: Path, overwrite!: Bool = false): Int64 {
         ensureOpen()
         execute<Int64>({ host =>
-            let response = http.get(url, headers: fileHeaders(host))
+            let response = http.get(url, headers: fileHeaders(host),
+                timeouts: Timeouts(read: configValue.downloadTimeout,
+                    write: configValue.downloadTimeout))
             if (!response.ok) {
                 let preview = truncateBytesSafe(response.text(), 200, suffix: "")
                 throw ZlibError.httpStatus(url, response.status, preview)
@@ -414,7 +416,9 @@ public class ZlibClient <: Resource & ToString {
     public func fetchBytes(url: String): Array<Byte> {
         ensureOpen()
         execute<Array<Byte>>({ host =>
-            let response = http.get(url, headers: fileHeaders(host))
+            let response = http.get(url, headers: fileHeaders(host),
+                timeouts: Timeouts(read: configValue.downloadTimeout,
+                    write: configValue.downloadTimeout))
             if (!response.ok) {
                 let preview = truncateBytesSafe(response.text(), 200, suffix: "")
                 throw ZlibError.httpStatus(url, response.status, preview)
@@ -458,6 +462,15 @@ public class ZlibClient <: Resource & ToString {
                     throw err
                 }
             } catch (err: HttpError) {
+                lastError = err
+                if (attempt >= attempts) {
+                    throw err
+                }
+            } catch (err: Exception) {
+                // 兜底重试：LinderHttp 偶尔把底层 stdx 异常直接漏到外层
+                // （实测 "read response timeout and the connection is closed"），
+                // 这类本质仍是传输失败，按瞬时故障重试（并换站），
+                // 否则一次网络抖动就会让业务调用直接失败。
                 lastError = err
                 if (attempt >= attempts) {
                     throw err
@@ -585,6 +598,13 @@ public class ZlibClientConfig <: ToString {
     public var autoRetry: Bool = true
     /** 单次请求最多尝试次数（含首次）。默认 3；小于 1 时按 1 处理。 */
     public var maxAttempts: Int64 = 3
+    /**
+     * 下载 / 取字节的读写超时。默认 5 分钟。
+     *
+     * API 请求的 30 秒读超时对文件下载太短（实测下载链接响应慢时会
+     * `read data timeout`），下载单独用更宽松的超时。
+     */
+    public var downloadTimeout: Duration = Duration.minute * 5
 
     public init() {}
 
@@ -599,6 +619,7 @@ public class ZlibClientConfig <: ToString {
         cloned.httpsProxy = httpsProxy
         cloned.autoRetry = autoRetry
         cloned.maxAttempts = maxAttempts
+        cloned.downloadTimeout = downloadTimeout
         cloned
     }
 

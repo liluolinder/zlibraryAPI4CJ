@@ -74,6 +74,10 @@ func doc3_2(): Unit {
     config.totalTimeout = Duration.second * 45
     config.httpsProxy = "http://127.0.0.1:7890"
     config.maxConnectionsPerHost = 4
+    config.autoRetry = true
+    config.maxAttempts = 3
+    // 下载/取图片的读写超时（默认 5 分钟；API 的 30 秒读超时对文件太短）
+    config.downloadTimeout = Duration.minute * 5
 
     let client = ZlibClient.create(baseUrl: "https://your-zlib-domain", config: config)
 

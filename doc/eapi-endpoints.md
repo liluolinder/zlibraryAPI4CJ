@@ -96,7 +96,7 @@
 | **推断** | 按端点命名/社区用法推断，**没有独立证据**；接口失效时优先怀疑这类 |
 
 > 2026-11-10 起，本库用独立工程 `integration/` 做过一轮真实站点联调
-> （`zh.eva101.ru`，36/36 通过）；未覆盖部分仍按社区文档标注。
+> （`zh.eva101.ru`，36/36 通过；登录后链路 16/16 通过）；未覆盖部分仍按社区文档标注。
 > 实测细节见 `MEMORY.md` 第 16 节。
 
 ---
@@ -110,8 +110,8 @@
 
 | 方法 | 路径 | 参数 | 鉴权 | 返回字段 | 本库入口 | 可信度 |
 | --- | --- | --- | --- | --- | --- | --- |
-| POST | `/user/login` | 表单 `email`、`password` | 否 | `user`（对象：`id`、`email`、`name`、`kindle_email`、`remix_userkey`、`downloads_today`、`downloads_limit`…） | `LoginApi.login` | 社区文档 + 社区客户端 |
-| GET | `/user/profile` | 无 | 需要 | `user`（同上） | `LoginApi.loginWithToken` / `UserApi.profile` | 社区文档 |
+| POST | `/user/login` | 表单 `email`、`password` | 否 | `user`（对象：`id`、`email`、`name`、`kindle_email`、`remix_userkey`、`downloads_today`、`downloads_limit`…） | `LoginApi.login` | 社区文档 + 社区客户端 + **v2 实测** |
+| GET | `/user/profile` | 无 | 需要 | `user`（同上） | `LoginApi.loginWithToken` / `UserApi.profile` | 社区文档 + **v2 实测** |
 | POST | `/user/registration` | 表单 `email`、`password`、`name` | 否 | 信封（`success` / `error`） | `LoginApi.register` | 社区文档 + 社区客户端 |
 | POST | `/user/password-recovery` | 表单 `email` | 否 | 信封 | `LoginApi.requestPasswordRecovery` | 社区文档 + 社区客户端 |
 | POST | `/user/email/confirmation/resend` | 无 | 需要 | 信封 | `LoginApi.resendConfirmation` | 社区文档 |
@@ -136,11 +136,11 @@
 | --- | --- | --- | --- | --- | --- | --- |
 | GET | `/book/{id}/{hash}` | query `switch-language`（可选） | 可选 | `book`（对象，见 3.1） | `BookApi.info` / `BookApi.infoOf` | 社区文档 + **v2 实测** |
 | GET | `/book/{id}/{hash}/similar` | 无 | 可选 | `books`（数组，元素为简要图书，见 6.2） | `BookApi.similar` / `BookApi.similarOf` | 社区文档 + **v2 实测** |
-| GET | `/book/{id}/{hash}/file` | 无 | 需要 | `file`（对象：`downloadLink`、`description`、`author`、`extension`、`allowDownload`） | `BookApi.file` / `BookApi.fileOf` | 社区文档 + 社区客户端 |
+| GET | `/book/{id}/{hash}/file` | 无 | 需要 | `file`（对象：`downloadLink`、`description`、`author`、`extension`、`allowDownload`） | `BookApi.file` / `BookApi.fileOf` | 社区文档 + 社区客户端 + **v2 实测** |
 | GET | `/book/{id}/{hash}/formats` | 无 | 可选（匿名实测可用） | `books` 数组：每项 `id`/`hash`/`extension`/`filesize`/`filesizeString` | `BookApi.formats`（返回 `ArrayList<BookFormat>`） | **v2 实测**（zh.eva101.ru, 2026-11-10） |
 | GET | `/book/{id}/{hash}/send-to-{type}` | 路径里的 `{type}`（如 `kindle`、`email`） | 需要 | 信封 | `BookApi.sendTo` | 社区客户端（`type` 取值集合为**推断**） |
-| GET | `/user/book/{id}/save` | 无 | 需要 | 信封 | `BookApi.save` / `BookApi.saveBrief` | 社区文档 |
-| GET | `/user/book/{id}/unsave` | 无 | 需要 | 信封 | `BookApi.unsave` / `BookApi.unsaveBrief` | 社区文档 |
+| GET | `/user/book/{id}/save` | 无 | 需要 | 信封 | `BookApi.save` / `BookApi.saveBrief` | 社区文档 + **v2 实测** |
+| GET | `/user/book/{id}/unsave` | 无 | 需要 | 信封 | `BookApi.unsave` / `BookApi.unsaveBrief` | 社区文档 + **v2 实测** |
 | GET | `/user/book/{id}/delete` | 无 | 需要 | 信封 | `BookApi.remove` | 社区文档 |
 
 补充：
@@ -180,9 +180,9 @@
 | 方法 | 路径 | 参数 | 鉴权 | 返回字段 | 本库入口 | 可信度 |
 | --- | --- | --- | --- | --- | --- | --- |
 | GET | `/user/profile` | 无 | 需要 | `user`（对象） | `UserApi.profile` | 社区文档 |
-| GET | `/user/book/saved` | query `order`、`page`、`limit` | 需要 | `books` + `pagination` | `UserApi.saved` | 社区文档 + 社区客户端 |
-| GET | `/user/book/downloaded` | query `order`、`page`、`limit` | 需要 | `books` + `pagination` | `UserApi.downloaded` | 社区文档 + 社区客户端 |
-| GET | `/user/book/recommended` | 无 | 需要 | `books`（数组） | `UserApi.recommended` | 社区文档 |
+| GET | `/user/book/saved` | query `order`、`page`、`limit` | 需要 | `books` + `pagination` | `UserApi.saved` | 社区文档 + 社区客户端 + **v2 实测** |
+| GET | `/user/book/downloaded` | query `order`、`page`、`limit` | 需要 | `books` + `pagination` | `UserApi.downloaded` | 社区文档 + 社区客户端 + **v2 实测** |
+| GET | `/user/book/recommended` | 无 | 需要 | `books`（数组） | `UserApi.recommended` | 社区文档 + **v2 实测** |
 | POST | `/user/update` | 表单 `email`、`password`、`name`、`kindle_email`（只发非空项） | 需要 | 信封 | `UserApi.update` | 社区文档 + 社区客户端 |
 | GET | `/user/hide-banner` | 无 | 需要 | 信封 | `UserApi.hideBanner` | 社区文档 + 社区客户端 |
 | GET | `/user/donations` | 无 | 需要 | 形状不稳定（本库返回原始 `JsonObject`） | `UserApi.donations` | 社区文档（形状**推断**） |
@@ -384,3 +384,19 @@ HTTP/1.1 400
 
 本库映射成 `ZlibErrorKind.NotLoggedIn`（`unwrap` 识别中英文 login 文案）。
 错误密码登录是 `{"success":0,"error":"电子邮件或密码错误"}` → `ApiFailure`。
+
+### 6.6 登录后链路（真实账号，2026-11-10）
+
+| 步骤 | 调用 | 结果 |
+| --- | --- | --- |
+| 邮箱密码登录 | `POST /user/login` | `success=1`，`user` 含 `id`/`email`/`remix_userkey`/`downloads_today`/`downloads_limit` |
+| remix 凭证复用 | `GET /user/profile`（带 `remix-userid/key`） | 与密码登录同一账号（uid 一致） |
+| 收藏列表 | `GET /user/book/saved?page=1&limit=5` | `books` + `pagination` 正常 |
+| 推荐 | `GET /user/book/recommended` | 100 条简要图书 |
+| 下载历史 | `GET /user/book/downloaded?page=1&limit=5` | `books` + `pagination` 正常（实测共 96 条） |
+| 收藏 / 取消 | `GET /user/book/{id}/save` / `unsave` | 详情 `_isUserSavedBook` 随之变化，测试后已还原 |
+| 换下载链接 | `GET /book/{id}/{hash}/file` | `downloadLink` 主机为 `dln1.ncdn.ec`（Cloudflare，签名链接，下载不需要 Cookie） |
+| 真实下载 | 直接 GET 签名链接 | 723637 字节落盘成功，校验后清理 |
+
+> 写操作测试遵守「不破坏用户数据」：先读原状态，已收藏的书跳过；测试造成的收藏会取消还原。
+> 若测试被中断，可用 `ZLIB_TEST_STAGE=cleanup` 清理固定测试书（id 17309781）的收藏残留。

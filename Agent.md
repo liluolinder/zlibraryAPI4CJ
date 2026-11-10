@@ -253,6 +253,16 @@ HTTP 层失败（DNS / TLS / 超时 / 池满）由 LinderHttp 抛 `HttpError`，
   避免一次换站把请求卡几分钟（实测一次换站约 20~55 秒，取决于被墙域名数量）；
 - 全部失败抛**最后一次原始异常**（`HttpError` 还是 `HttpError`，`ZlibError` 还是 `ZlibError`）；
 - 新增接口无需关心重试：只要走 `client.getXxx/postXxx` 就自动具备该能力。
+- **未包装的底层异常也会重试**：实测 LinderHttp 偶尔把 stdx 的 TLS/读写异常
+  直接漏到外层（不是 `HttpError`），`execute` 用兜底 `catch (err: Exception)`
+  按传输失败处理，否则一次网络抖动就会让业务调用直接失败。
+- **下载单独超时**：`config.downloadTimeout`（默认 5 分钟）用于下载/取字节；
+  API 的 30 秒读超时对文件太短。`ensureDirectory` 先判断再创建，可重复调用。
+
+> ⚠ **已知环境问题**：本机（Windows + Cangjie 1.2.0 stdx）实测登录 POST 偶发
+> ~2/10 次进程直接崩溃（exit -1，事件日志 `0xc0000374` = ntdll 堆损坏），
+> 同一机器上另一个用 LinderHttp 的项目也复现过，判断为底层 TLS/网络库的原生问题，
+> 不是本库逻辑。集成测试请用进程级重试；排查时 `ZLIB_TEST_STAGE=login` 可单独复现。
 
 ---
 
@@ -292,7 +302,7 @@ cjpm build
 
 ```powershell
 cd C:\Project\Cangjie\zlibraryAPI4CJ
-cjpm test --no-progress                       # 全部子包（当前应为 TOTAL 129 / PASSED 129）
+cjpm test --no-progress                       # 全部子包（当前应为 TOTAL 131 / PASSED 131）
 cjpm test --no-progress src\core src\model    # 只跑部分包（仍会先编译整个模块）
 ```
 
@@ -337,7 +347,12 @@ cjpm run
 ```
 
 - 2026-11-10 在 `https://zh.eva101.ru` 实测 **36/36 通过**（搜索 / 榜单 / 详情 /
-  相似 / 格式 / 站点信息 / 错误映射 / 自动换站重试）；
+  相似 / 格式 / 站点信息 / 错误映射 / 自动换站重试）；**登录后链路 16/16 通过**
+  （登录 / token 登录 / profile / 收藏 / 推荐 / 历史 / 收藏取消 / 换链接 / 真实下载）；
+- 账号密码只通过环境变量传入（`ZLIB_TEST_EMAIL` / `ZLIB_TEST_PASSWORD`），
+  绝不写进仓库；`ZLIB_TEST_ONLY_AUTH=1` 只跑登录链路，
+  `ZLIB_TEST_STAGE=login|token|read|write|file|cleanup` 可分段调试，
+  `ZLIB_TEST_DOWNLOAD=1` 才真正下载（消耗每日配额）；
 - 镜像会轮换：先看 `probeSite` 检查，失败就改 `integration/src/main.cj` 的 `DOMAIN`；
 - 本机对 `z-library.sk` 等域名不可达（超时），但 `zh.eva101.ru` 可用；
   集成测试里故意用死域名 + 种子站来验证 2.1.0 的换站能力。
@@ -387,7 +402,7 @@ cjpm run
 - 2.1.0 新增站点池与请求自动重试（`ZlibSites` / 种子站换站），
   2026-11-10 在 `zh.eva101.ru` 实测 `integration/` 36/36 通过；
 - 七个业务子包全部完成（`core` / `model` / `login` / `book` / `search` / `user` / `info`），
-  每个包都有离线单测；`cjpm test --no-progress` 当前为 **TOTAL 129 / PASSED 129 / FAILED 0**。
+  每个包都有离线单测；`cjpm test --no-progress` 当前为 **TOTAL 131 / PASSED 131 / FAILED 0**。
 - `doccheck/` 已建立，`cd doccheck && cjpm build` 通过；`API_USAGE.md`
   的每个示例在 `doccheck/src/main.cj` 里都有一个对应函数。
 - 未覆盖的 eapi 能力：`/user/donations` 的形状不稳定（返回原始 JSON）；
@@ -417,3 +432,6 @@ cjpm run
 | 换站后仍全部失败 | 种子站是否可达、`/eapi/info/domains` 是否返回域名；看 `client.sites.snapshot()` 的 `refreshCount` / `lastRefreshAtMillis` |
 | 请求偶尔变慢（几十秒） | 自动换站会串行探测候选域名（每个 5s 超时、最多 4 个）；可调小 `maxCandidates` 或关掉 `autoRetry` |
 | 集成测试全红 | 镜像失效；改 `integration/src/main.cj` 的 `DOMAIN`，先用 `probeSite`/`checkAccess` 确认域名可用 |
+| 进程直接退出（exit -1，事件日志 `0xc0000374` ntdll 堆损坏） | 底层 stdx/LinderHttp 的 TLS 原生层问题（本机实测登录 POST 约 2/10 次，其它项目也复现）；进程级重试或升级 SDK；`ZLIB_TEST_STAGE=login` 可单独复现 |
+| 下载报 `read data timeout` | 下载 CDN 慢；调大 `config.downloadTimeout`（默认 5 分钟），API 的 30 秒读超时对文件不够 |
+| `Directory.create` 对已存在目录抛 `FSException` | 用 `ensureDirectory`（库内部已封装）；调用方自建目录前先 `exists()` |

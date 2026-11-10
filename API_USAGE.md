@@ -237,6 +237,9 @@ config.maxConnectionsPerHost = 4
 config.autoRetry = true
 config.maxAttempts = 3
 
+// 下载/取图片等大响应的读写超时（默认 5 分钟；API 请求的 30 秒读超时对文件太短）
+config.downloadTimeout = Duration.minute * 5
+
 let client = ZlibClient.create(baseUrl: "https://your-zlib-domain", config: config)
 
 // 需要改动共享配置时先 copy()，避免污染别处持有的实例
@@ -256,8 +259,9 @@ cloned.maxAttempts = 1
 | `httpsProxy` | `String` | `""` | 空串表示不用代理 |
 | `autoRetry` | `Bool` | `true` | 是否开启请求自动重试（含失败换站） |
 | `maxAttempts` | `Int64` | `3` | 单次请求最多尝试次数（含首次）；小于 1 按 1 处理 |
+| `downloadTimeout` | `Duration` | 5 分钟 | 下载 / 取字节的读写超时（实测下载链接偶尔很慢） |
 
-方法：`copy(): ZlibClientConfig`（返回副本，已同步复制 `autoRetry` / `maxAttempts`）。
+方法：`copy(): ZlibClientConfig`（返回副本，已同步复制 `autoRetry` / `maxAttempts` / `downloadTimeout`）。
 
 > `ZlibClientConfig` 是**可变类**，但客户端内部持有它；创建客户端之后再改
 > `config` 不会影响已建好的客户端（内部按值使用各字段）。
@@ -903,6 +907,7 @@ println("拿到 ${domains.size} 个候选域名")
 | `ZlibError(NotFound)` | ❌ | ❌ | 资源不存在，换站无用 |
 | `ZlibError(Closed)` | ❌ | ❌ | 客户端已关闭，换站无用 |
 | `HttpError`（传输层） | ✅ 到 `maxAttempts` 次 | ✅（同样会换站） | DNS 失败/连不上是最常见的换站触发点；先换站再重试 |
+| 未包装的底层异常（非上述两类） | ✅ 到 `maxAttempts` 次 | ✅（API 请求） | 实测 LinderHttp 偶发把 stdx 的 TLS/读写异常直接漏到外层；本质仍是传输失败，漏掉重试会让一次抖动直接变业务失败 |
 
 补充规则：
 
@@ -911,7 +916,8 @@ println("拿到 ${domains.size} 个候选域名")
 - 每次重试前**重新读** `sites.current()`，所以换站立即生效；
 - 全部尝试失败时抛出**最后一次的原始异常**——是 `HttpError` 就还是 `HttpError`，
   是 `ZlibError` 就还是 `ZlibError`，不会包装成第三方异常类型；
-- 下载 / 取字节：`refreshOnFailure = false`，**不触发换站**，但 `HttpError` 仍按次数重试；
+- 下载 / 取字节：`refreshOnFailure = false`，**不触发换站**，但 `HttpError` 与未包装异常
+  仍按次数重试，并使用 `config.downloadTimeout`（默认 5 分钟）而不是 API 的 30 秒读超时；
 - 换站本身有冷却窗口（见 5.8），失败风暴不会把种子站打爆。
 
 ```cangjie
@@ -1661,7 +1667,9 @@ println("已请求发送到 Kindle")
 把已获取的下载信息落盘。
 
 - 返回：`Int64`（写入字节数）
-- 文件名由 `DownloadInfo.fileName()` 生成；保存目录不存在时自动递归创建
+- 文件名由 `DownloadInfo.fileName()` 生成；保存目录不存在时自动递归创建，
+  **目录已存在也可安全调用**（库内部先判断再创建；实测 `Directory.create` 对已存在目录会抛 `FSException`）
+- 下载使用 `config.downloadTimeout`（默认 5 分钟）而不是 API 的 30 秒读超时
 
 | 参数 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
@@ -1689,7 +1697,10 @@ println("覆盖写入 ${bytes2} 字节")
 - `downloadLink` 为空 → 抛 `ZlibError.BadResponse`
   （提示先用 `BookApi.file()` 换 `DownloadInfo`）；
 - `allowDownload == false` → 抛 `ZlibError.ApiFailure`；
-- 目录会由本方法创建，不需要自己 `Directory.create`。
+- 目录会由本方法创建，不需要自己 `Directory.create`；
+- **实测（2026-11-10）**：下载域名是 `dln1.ncdn.ec`（Cloudflare CDN），与站点域名不同，
+  且签名链接不需要 Cookie；本库下载时会自动改用 `fileHeaders`（不带 `remix-userid/key`）。
+  一次真实下载 723637 字节成功、文件落盘后已清理。
 
 ### 9.15 BookApi.downloadBook
 
@@ -2798,6 +2809,11 @@ func rawInfo(client: ZlibClient): String {
    或调用方自己的项目）。
 9. **凭证安全由调用方负责**：本库不落盘、不打日志，但调用方打印或持久化时
    请避免泄露 `remix_userkey`。
+10. **已知环境问题（非本库逻辑）**：本机 Windows + Cangjie 1.2.0 stdx 实测
+   登录 POST 偶发进程直接崩溃（exit -1，事件日志 `0xc0000374` = ntdll 堆损坏，
+    约 2/10 次；同机另一个用 LinderHttp 的项目也复现）。判断为底层 TLS/网络库的
+    原生内存问题，库无法在 Cangjie 层捕获。建议：进程级重试、升级 SDK/网络库，
+    或换网络环境验证；集成测试可用 `ZLIB_TEST_STAGE=login` 单独复现。
 
 ---
 

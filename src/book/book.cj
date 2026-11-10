@@ -187,7 +187,7 @@ public class BookApi {
         if (!info.allowDownload) {
             throw ZlibError.apiFailure("book/download", "服务端标记该书不可下载（allowDownload=false）")
         }
-        Directory.create(dir, recursive: true)
+        ensureDirectory(dir)
         client.download(info.downloadLink, dir.join(info.fileName()), overwrite: overwrite)
     }
 
@@ -210,4 +210,17 @@ internal func switchLanguageQuery(value: ?String): Array<(String, String)> {
         query.add(("switch-language", actual))
     }
     query.toArray()
+}
+
+/**
+ * 保证保存目录存在。
+ *
+ * `Directory.create(dir, recursive: true)` 在目录**已存在**时会抛
+ * `FSException`（实测），而"保存到已存在的下载目录"是最常见用法，
+ * 所以这里先判断再创建；重复调用是幂等的。
+ */
+internal func ensureDirectory(dir: Path): Unit {
+    if (!exists(dir)) {
+        Directory.create(dir, recursive: true)
+    }
 }

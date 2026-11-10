@@ -81,3 +81,21 @@ class BookApiGuardTest {
         client.close()
     }
 }
+
+@Test
+class DirectoryHelperTest {
+    @TestCase
+    func testEnsureDirectoryIsIdempotent(): Unit {
+        // 实测：Directory.create(dir, recursive: true) 在目录已存在时会抛
+        // FSException，因此 ensureDirectory 必须可重复调用（下载到已有目录是常见用法）
+        let dir = Path("target\\test_book_dirs\\nested")
+        removeIfExists(dir, recursive: true)
+        @Expect(exists(dir), false)
+        ensureDirectory(dir)
+        @Expect(exists(dir), true)
+        ensureDirectory(dir) // 第二次不应该抛异常
+        @Expect(exists(dir), true)
+        removeIfExists(dir, recursive: true)
+        @Expect(exists(dir), false)
+    }
+}
