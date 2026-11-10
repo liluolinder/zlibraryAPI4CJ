@@ -3,7 +3,7 @@
   name = "zlibraryAPI4CJ"
   organization = ""
   description = "Z-Library EAPI 的仓颉静态库：按功能划分子包，覆盖登录/图书/搜索/用户/站点信息等 eapi 接口"
-  version = "2.2.0"
+  version = "2.2.1"
   target-dir = ""
   script-dir = ""
   output-type = "static"

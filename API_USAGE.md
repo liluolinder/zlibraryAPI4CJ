@@ -1,6 +1,6 @@
 # zlibraryAPI4CJ API 使用说明
 
-> 版本对应：仓颉 1.2.0 / LinderHttp 2.0 / `output-type = "static"` / 库版本 `2.2.0`。
+> 版本对应：仓颉 1.2.0 / LinderHttp 2.0 / `output-type = "static"` / 库版本 `2.2.1`。
 >
 > 本文件是**面向调用方**的完整使用手册：装依赖、建客户端、拿凭证、探测站点、
 > 处理错误，然后逐个接口查参数与返回类型。
@@ -207,6 +207,12 @@ let sharedHttpSites = ZlibClient.fromHttpClientWithSites(http, sites)
 | `sites` | `ZlibSites` | — | 站点管理器（位置参数），多个客户端可共享 |
 | `credential` | `ZlibCredential` | `ZlibCredential.anonymous()` | 初始凭证 |
 | `config` | `ZlibClientConfig` | `ZlibClientConfig()` | 连接与重试配置 |
+
+> **启动凭证（2.2.1）**：`credential` 在建客户端时会被预置进 LinderHttp 的 Cookie
+> 存储。原因：LinderHttp 在存储非空时会用存储内容覆盖手写的 `Cookie` 头；若只靠
+> 手写头，第一次请求成功、服务端下发 `Set-Cookie` 后，第二次请求就会丢凭证变游客。
+> 本库用 `seedCredentialCookies` 预置、`ensureCredentialCookies` 换站后补种，
+> 所以「持久化凭证 → 下次启动 create(credential:)」是可靠的。
 
 `fromHttpClient` 参数：
 

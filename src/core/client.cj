@@ -66,6 +66,59 @@ public class ZlibClient <: Resource & ToString {
         this.credentialValue = credential
         this.configValue = config
         this.sitesValue = sites
+        // 启动时就把凭证写进 Cookie 存储，否则第一次请求之后会被 LinderHttp 的
+        // Cookie 存储覆盖掉手写的 Cookie 头（见 seedCredentialCookies 注释）。
+        seedCredentialCookies()
+    }
+
+    /**
+     * 把凭证预置进 LinderHttp 的 Cookie 存储。
+     *
+     * 为什么必须做：LinderHttp 在 Cookie 存储**非空**时，会用存储内容覆盖调用方
+     * 手写的 `Cookie` 头（`mergeHeaders` 里最后一步）。启动时只靠手写 Cookie 的话：
+     * 第一次请求能通过（存储为空），但服务端会下发 `Set-Cookie`（实测
+     * `bsrv=...; path=/`），第二次请求的 Cookie 头就只剩存储内容，
+     * `remix_userid` / `remix_userkey` 丢失 → 后端按游客处理（bbapi 曾出现
+     * 同类「传了凭证但没实际加载」的问题）。
+     *
+     * 预置进存储后，存储拼出的 Cookie 始终包含凭证，服务端下发的 Cookie 也会叠加。
+     */
+    private func seedCredentialCookies(): Unit {
+        if (!credentialValue.isLoggedIn) {
+            return
+        }
+        match (http.cookies()) {
+            case Some(store) =>
+                let headers = ArrayList<String>()
+                headers.add("remix_userid=${credentialValue.userId}; Path=/; Max-Age=31536000")
+                headers.add("remix_userkey=${credentialValue.userKey}; Path=/; Max-Age=31536000")
+                headers.add("siteLanguage=${credentialValue.siteLanguage}; Path=/; Max-Age=31536000")
+                headers.add("siteLanguageV2=${credentialValue.siteLanguage}; Path=/; Max-Age=31536000")
+                store.store(sitesValue.current().url, headers.toArray())
+            case None => ()
+        }
+    }
+
+    /**
+     * 确保**当前站点**的 Cookie 存储里有凭证；没有就补种（换站后域名会变）。
+     *
+     * 在每次请求尝试前调用，开销是「一次 headerFor + 最多一次 store」。
+     */
+    private func ensureCredentialCookies(): Unit {
+        if (!credentialValue.isLoggedIn) {
+            return
+        }
+        match (http.cookies()) {
+            case Some(store) =>
+                let hasCredential = match (store.headerFor("${sitesValue.current().url}/eapi/")) {
+                    case Some(line) => line.contains("remix_userid=")
+                    case None => false
+                }
+                if (!hasCredential) {
+                    seedCredentialCookies()
+                }
+            case None => ()
+        }
     }
 
     /**
@@ -467,6 +520,7 @@ public class ZlibClient <: Resource & ToString {
         var lastError: ?Exception = None
         while (attempt <= attempts) {
             let host = sitesValue.current()
+            ensureCredentialCookies()
             try {
                 return operation(host)
             } catch (err: ZlibError) {

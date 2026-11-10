@@ -50,6 +50,7 @@ func doc3_1(): Unit {
     let client = ZlibClient.create(baseUrl: "https://your-zlib-domain")
 
     // 3) 指定站点 + 已有凭证
+    //    凭证会在建客户端时预置进底层 Cookie 存储（2.2.1），启动即登录可靠
     let credential = ZlibCredential.fromCookieString(
         "remix_userid=123456; remix_userkey=xxxxxxxx")
     let authed = ZlibClient.create(baseUrl: "https://your-zlib-domain",

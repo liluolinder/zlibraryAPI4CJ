@@ -21,7 +21,7 @@
  *       登录后链路：登录 → profile → 收藏/推荐/历史 → 收藏/取消收藏 → 换下载链接
  *       →（可选）真实下载并清理。
  *   ZLIB_TEST_ONLY_AUTH=1        只跑登录后链路（跳过探测/换站等前置检查）
- *   ZLIB_TEST_STAGE=login|token|read|write|file|cleanup
+ *   ZLIB_TEST_STAGE=login|credential|token|read|write|file|cleanup
  *       分段调试；cleanup 用于清理被中断的收藏测试留下的书
  *   ZLIB_TEST_DOWNLOAD=1         真正下载一个文件（消耗 1 次每日配额，默认跳过）
  */
@@ -155,7 +155,15 @@ func checkAuthenticated(checks: Checks, email: String, password: String): Unit {
             return
         }
 
-        // 2) 派生登录态客户端（与 guest 共享连接池）
+        // 2) 启动时直接带凭证：验证凭证真的被加载（bbapi 曾出现「传了但没生效」的 bug）
+        logStep("startup-credential begin")
+        checkStartupCredential(checks, result.credential, result.user.id)
+        logStep("startup-credential done")
+        if (stage == "credential") {
+            return
+        }
+
+        // 3) 派生登录态客户端（与 guest 共享连接池）
         let client = result.withClient(guest)
 
         // 2.1) 清理被中断的测试留下的收藏痕迹（仅在 ZLIB_TEST_STAGE=cleanup 时执行）
@@ -226,6 +234,80 @@ func checkAuthenticated(checks: Checks, email: String, password: String): Unit {
     } finally {
         logStep("checkAuthenticated end")
         guest.close()
+    }
+}
+
+/**
+ * 启动时直接带凭证创建客户端：凭证必须**真正加载到请求里**，而不只是存了个字段。
+ *
+ * 背景：bbapi 曾出现「`create(credential: ...)` 传了参数但请求没带凭证」的 bug。
+ * 根因是 LinderHttp 的 Cookie 存储在**收到任意 Set-Cookie 后**会用存储内容覆盖
+ * 调用方手写的 Cookie 头；新客户端若只靠手写 Cookie，第二次请求就会丢凭证。
+ * 这里用一个全新的客户端：profile → 普通请求（触发 Set-Cookie）→ 再 profile，
+ * 连续三次都必须保持登录态。
+ */
+func checkStartupCredential(checks: Checks, credential: ZlibCredential,
+    expectedUserId: Int64): Unit {
+    // A. create(credential:)：全新 HttpClient / 空 Cookie 存储
+    let byCreate = ZlibClient.create(baseUrl: DOMAIN, credential: credential, seeds: [DOMAIN])
+    try {
+        let first = UserApi.profile(byCreate)
+        checks.check("启动凭证·首次 profile 生效", first.id == expectedUserId,
+            detail: "uid=${first.id}")
+        // 普通 GET 会触发服务端下发 Set-Cookie（实测为 bsrv=...）
+        let _ = SearchApi.search(byCreate, "rust", limit: 2)
+        let second = UserApi.profile(byCreate)
+        checks.check("启动凭证·普通请求后仍生效", second.id == expectedUserId,
+            detail: "uid=${second.id}")
+        let third = UserApi.profile(byCreate)
+        checks.check("启动凭证·连续请求仍生效", third.id == expectedUserId,
+            detail: "uid=${third.id}")
+        checks.check("client.credential 已保存", byCreate.credential.userId == credential.userId,
+            detail: byCreate.credential.userId)
+    } catch (err: ZlibError) {
+        checks.check("启动凭证·create(credential:)", false, detail: err.toString())
+    } finally {
+        byCreate.close()
+    }
+
+    // B. createWithSites(credential:)：共享 ZlibSites 的启动路径
+    let sites = ZlibSites(customUrl: DOMAIN)
+    let bySites = ZlibClient.createWithSites(sites, credential: credential)
+    try {
+        let me = UserApi.profile(bySites)
+        checks.check("启动凭证·createWithSites 生效", me.id == expectedUserId,
+            detail: "uid=${me.id}")
+    } catch (err: ZlibError) {
+        checks.check("启动凭证·createWithSites", false, detail: err.toString())
+    } finally {
+        bySites.close()
+    }
+
+    // C. cookie 串往返（持久化后下次启动的典型路径）
+    let restored = ZlibCredential.fromCookieString(credential.toCookieHeader())
+    let byCookie = ZlibClient.create(baseUrl: DOMAIN, credential: restored)
+    try {
+        let me = UserApi.profile(byCookie)
+        checks.check("启动凭证·fromCookieString 往返生效", me.id == expectedUserId,
+            detail: "uid=${me.id}")
+        checks.check("fromCookieString 还原 userId",
+            restored.userId == credential.userId, detail: restored.userId)
+    } catch (err: ZlibError) {
+        checks.check("启动凭证·fromCookieString 往返", false, detail: err.toString())
+    } finally {
+        byCookie.close()
+    }
+
+    // D. 游客对照：必须 NotLoggedIn，证明服务端不是对谁都返回 profile
+    let anon = ZlibClient.create(baseUrl: DOMAIN)
+    try {
+        let me = UserApi.profile(anon)
+        checks.check("启动凭证·游客对照应 NotLoggedIn", false, detail: "uid=${me.id}")
+    } catch (err: ZlibError) {
+        checks.check("启动凭证·游客对照应 NotLoggedIn",
+            err.kind == ZlibErrorKind.NotLoggedIn, detail: err.kind.toString())
+    } finally {
+        anon.close()
     }
 }
 

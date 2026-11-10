@@ -570,7 +570,7 @@ cjpm --version; cjc --version
 # 2) 构建
 cd C:\Project\Cangjie\zlibraryAPI4CJ; cjpm build
 
-# 3) 单测（离线；当前基线 TOTAL 135 / PASSED 135 / FAILED 0）
+# 3) 单测（离线；当前基线 TOTAL 139 / PASSED 139 / FAILED 0）
 cjpm test --no-progress
 
 # 4) 预检（每个新文件）
@@ -594,7 +594,7 @@ git show af70e1e:src/common/commons.cj
 | 检查 | 命令 | 结果 |
 | --- | --- | --- |
 | 静态库构建 | `cjpm build` | success |
-| 离线单测 | `cjpm test --no-progress` | TOTAL 135 / PASSED 135 / FAILED 0 |
+| 离线单测 | `cjpm test --no-progress` | TOTAL 139 / PASSED 139 / FAILED 0 |
 | 文档示例编译 | `cd doccheck && cjpm build` | success（并可直接运行 `target\release\bin\main.exe`） |
 | 联网集成测试 | `cd integration && cjpm run` | 36 passed / 0 failed，exit 0（2026-11-10，zh.eva101.ru） |
 | 新 `.cj` 文件预检 | `check_cangjie_closure.py` | `doccheck/src/main.cj` ok, exit 0 |
@@ -610,7 +610,7 @@ git show af70e1e:src/common/commons.cj
 
 | 检查 | 命令 | 结果 |
 | --- | --- | --- |
-| 离线单测 | `cjpm test --no-progress` | 135 passed / 0 failed |
+| 离线单测 | `cjpm test --no-progress` | 139 passed / 0 failed |
 | 联网集成（基础） | `cd integration && cjpm run` | 36 passed / 0 failed，exit 0 |
 | 联网集成（登录后链路） | `ZLIB_TEST_ONLY_AUTH=1` + `ZLIB_TEST_EMAIL/PASSWORD` | 16 passed / 0 failed（含真实下载 723637 字节） |
 | 联网集成（完整一次） | 带账号密码跑全量 | 50 passed / 0 failed，exit 0 |
@@ -692,3 +692,61 @@ bbapi 也是分开的（`BiliError` 与 `HttpError` 各管一层），但用户�
 - 源码兼容：`catch (err: ZlibError)` 不受影响；`ZlibError` 构造器新增默认参数 `cause!`；
 - 行为兼容：重试/换站规则不变，只是最终抛出的类型统一；
 - 依赖方若之前读 `HttpError.kind/url/attempts`，改为读 `err.cause`（`?Exception`）。
+---
+
+## 18. 启动凭证丢失 bug（2.2.1）
+
+### 18.1 现象（bbapi 同类 bug）
+
+用户反馈：bbapi 里「启动时给客户端传了登录凭证，但请求实际没带」。在本库复现路径：
+
+1. `ZlibClient.create(baseUrl, credential: 已登录凭证)`（全新 HttpClient、空 Cookie 存储）；
+2. 第一次 `UserApi.profile()` → **成功**（手写的 `Cookie` 头生效）；
+3. 普通请求（如 `SearchApi.search`）→ 服务端下发 `Set-Cookie: bsrv=...; path=/`；
+4. 第二次 `UserApi.profile()` → **NotLoggedIn**（变回游客）。
+
+### 18.2 根因
+
+LinderHttp 的 `mergeHeaders` 在 **Cookie 存储非空**时，会用存储内容
+**覆盖**调用方手写的 `Cookie` 头：
+
+```cangjie
+// LinderHttp/src/http/client.cj
+match (cookieStore) {
+    case Some(store) => match (store.headerFor(request.url)) {
+        case Some(line) => merged.set("cookie", line)   // 覆盖手写 Cookie
+        case None => ()
+    }
+    ...
+}
+```
+
+新客户端存储为空 → 第一次请求用手写 Cookie，凭证有效；服务端一下发 Cookie，
+存储变非空 → 之后每次请求的 Cookie 头都只剩存储内容（`bsrv` + 语言），
+`remix_userid` / `remix_userkey` 丢失。`remix-userid` 请求头服务端不认，
+所以直接变游客。
+
+### 18.3 修复
+
+客户端创建时把凭证**预置进 Cookie 存储**（`seedCredentialCookies`），
+并在每次请求尝试前检查当前站点存储里是否还有 `remix_userid`，
+换站导致域名变化时自动补种（`ensureCredentialCookies`）：
+
+```cangjie
+headers.add("remix_userid=${credentialValue.userId}; Path=/; Max-Age=31536000")
+headers.add("remix_userkey=${credentialValue.userKey}; Path=/; Max-Age=31536000")
+headers.add("siteLanguage=...; Path=/; Max-Age=31536000")
+headers.add("siteLanguageV2=...; Path=/; Max-Age=31536000")
+store.store(sitesValue.current().url, headers.toArray())
+```
+
+这样存储拼出的 Cookie 始终包含凭证，服务端下发的 `bsrv` 等只是叠加。
+
+### 18.4 验证
+
+- 集成测试新增 `ZLIB_TEST_STAGE=credential`：全新客户端 profile →
+  普通请求 → profile → profile，三次都必须保持登录态；另外覆盖
+  `createWithSites(credential:)`、`fromCookieString` 往返、游客对照；
+- 实测 `zh.eva101.ru` 真实账号：**11/11 通过**（修复前「普通请求后仍生效」失败）；
+- 离线单测新增 `StartupCredentialTest`（4 个 case），断言凭证被写进
+  Cookie 存储（`http.cookies().headerFor(...)` 含 `remix_userid`）。

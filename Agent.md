@@ -22,9 +22,9 @@
 - 语言 / 编译器：仓颉 **1.2.0**（`cjc` / `cjpm`），宿主平台 `x86_64-w64-mingw32`
 - HTTP：[LinderHttp](https://gitcode.com/LiquidStudio/LinderHttp) 2.0（本地 `path` 依赖）
 - JSON：`stdx.encoding.json`（**手动容错解码，不用宏**）
-- 版本：`2.2.0`（`2.0.0` = 按 bbapi 模式重写的第二版；`2.1.0` 增加站点池 /
-  种子站换站 / 请求自动重试；`2.2.0` 统一异常类型——对外只抛 `ZlibError`，
-  `HttpError`/stdx 异常/文件系统异常都包装进 `cause`，见 §5.3）
+- 版本：`2.2.1`（`2.0.0` = 按 bbapi 模式重写的第二版；`2.1.0` 增加站点池 /
+  种子站换站 / 请求自动重试；`2.2.0` 统一异常类型——对外只抛 `ZlibError`；
+  `2.2.1` 修复「启动时传了凭证但第二个请求起变游客」的 bug，见 §5.3）
 
 **静态库不能有 `main`**。可运行验证放在独立消费工程里
 （本仓库内的 `doccheck/` 就是这样的消费工程，见第 11 节）。
@@ -306,7 +306,7 @@ cjpm build
 
 ```powershell
 cd C:\Project\Cangjie\zlibraryAPI4CJ
-cjpm test --no-progress                       # 全部子包（当前应为 TOTAL 135 / PASSED 135）
+cjpm test --no-progress                       # 全部子包（当前应为 TOTAL 139 / PASSED 139）
 cjpm test --no-progress src\core src\model    # 只跑部分包（仍会先编译整个模块）
 ```
 
@@ -408,7 +408,7 @@ cjpm run
 - 2.2.0 统一异常类型：对外只抛 `ZlibError`，`HttpError`/stdx/文件系统异常包装进
   `cause`，调用方一个 catch 管全部（见 §5.3、`API_USAGE.md` 第 6 章）；
 - 七个业务子包全部完成（`core` / `model` / `login` / `book` / `search` / `user` / `info`），
-  每个包都有离线单测；`cjpm test --no-progress` 当前为 **TOTAL 135 / PASSED 135 / FAILED 0**。
+  每个包都有离线单测；`cjpm test --no-progress` 当前为 **TOTAL 139 / PASSED 139 / FAILED 0**。
 - `doccheck/` 已建立，`cd doccheck && cjpm build` 通过；`API_USAGE.md`
   的每个示例在 `doccheck/src/main.cj` 里都有一个对应函数。
 - 未覆盖的 eapi 能力：`/user/donations` 的形状不稳定（返回原始 JSON）；

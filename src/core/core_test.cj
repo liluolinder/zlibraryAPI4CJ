@@ -883,6 +883,66 @@ class UnifiedErrorTest {
 }
 
 /**
+ * 启动时直接带凭证：凭证必须真正生效，而不只是存了个字段。
+ *
+ * 回归的是 bbapi 出现过的同类 bug：`create(credential:)` 看起来传了参数，
+ * 但请求里没有凭证。根因是 LinderHttp 在 Cookie 存储非空时会用存储内容
+ * 覆盖调用方手写的 `Cookie` 头；第一次请求后服务端下发 Set-Cookie，
+ * 第二次请求凭证就丢了。本库在创建客户端时把凭证预置进 Cookie 存储。
+ */
+@Test
+class StartupCredentialTest {
+    @TestCase
+    func testCreateStoresCredential(): Unit {
+        let client = ZlibClient.create(baseUrl: "https://a.com",
+            credential: ZlibCredential.of(42, "secret"))
+        @Expect(client.credential.isLoggedIn, true)
+        @Expect(client.credential.userId, "42")
+        @Expect(client.credential.userKey, "secret")
+        client.close()
+    }
+
+    @TestCase
+    func testCredentialSeededIntoCookieStore(): Unit {
+        let http = HttpClientBuilder().cookies(true).build()
+        let client = ZlibClient.fromHttpClient(http, baseUrl: "https://a.com",
+            credential: ZlibCredential.of(42, "secret"))
+        var seeded = false
+        match (http.cookies()) {
+            case Some(store) =>
+                var line = ""
+                if (let Some(value) <- store.headerFor("https://a.com/eapi/")) {
+                    line = value
+                }
+                seeded = line.contains("remix_userid=42") &&
+                    line.contains("remix_userkey=secret")
+            case None => ()
+        }
+        @Expect(seeded, true)
+        client.close()
+    }
+
+    @TestCase
+    func testCookieRoundTripKeepsCredential(): Unit {
+        let original = ZlibCredential.of(42, "secret", siteLanguage: "en")
+        let restored = ZlibCredential.fromCookieString(original.toCookieHeader())
+        @Expect(restored.userId, "42")
+        @Expect(restored.userKey, "secret")
+        @Expect(restored.siteLanguage, "en")
+        @Expect(restored.isLoggedIn, true)
+    }
+
+    @TestCase
+    func testWithCredentialDerivesLoggedInClient(): Unit {
+        let anon = ZlibClient.create(baseUrl: "https://a.com")
+        let logged = anon.withCredential(ZlibCredential.of(1, "k"))
+        @Expect(logged.credential.isLoggedIn, true)
+        @Expect(logged.credential.userId, "1")
+        logged.close()
+    }
+}
+
+/**
  * 测试用可变计数器。
  *
  * 仓颉不允许逃逸闭包捕获**可变局部变量**（CJ030），所以计数放在堆对象里：
