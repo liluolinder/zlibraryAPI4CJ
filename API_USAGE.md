@@ -1,6 +1,6 @@
 # zlibraryAPI4CJ API 使用说明
 
-> 版本对应：仓颉 1.2.0 / LinderHttp 2.0 / `output-type = "static"` / 库版本 `2.4.0`。
+> 版本对应：仓颉 1.2.0 / LinderHttp 2.0 / `output-type = "static"` / 库版本 `2.6.0`。
 >
 > 本文件是**面向调用方**的完整使用手册：装依赖、建客户端、拿凭证、探测站点、
 > 处理错误，然后逐个接口查参数与返回类型。
@@ -30,6 +30,7 @@
 11. [user 用户](#11-user-用户)
 12. [info 站点信息](#12-info-站点信息)
     - [12.6 书单 BooklistApi（papi）](#126-书单-booklistapi-papi)
+    - [12.7 评论 CommentApi（papi）](#127-评论-commentapi-papi)
 13. [数据模型](#13-数据模型)
 14. [工具函数](#14-工具函数)
 15. [常见任务配方](#15-常见任务配方)
@@ -1181,6 +1182,8 @@ try {
 | `BooklistApi.list(client, page!, order!, searchQuery!, color!, access!)` | GET | `/papi/booklist/get-page/{page}` | 否 | `BooklistPage` |
 | `BooklistApi.my(client, page!, order!, searchQuery!)` | GET | `/papi/booklist/get-page/{page}?access=private` | 需要 | `BooklistPage` |
 | `BooklistApi.books(client, readlistId, page!)` | POST | `/papi/booklist/{id}/get-books/{page}` | 否 | `BooklistBooksPage` |
+| `CommentApi.book(client, bookId, offset!)` | GET | `/papi/comments/book/{id}/{offset}` | 否 | `BookCommentsPage` |
+| `CommentApi.booklist(client, readlistId, offset!)` | GET | `/papi/comments/booklist/{id}/{offset}` | 否 | `BookCommentsPage` |
 | `InfoApi.plans(client, switchLanguage!)` | GET | `/info/plans` | 否 | `JsonObject` |
 
 > **本章之后所有示例的约定**：`client` 已按第 3 章创建（游客或登录态）；
@@ -2262,6 +2265,51 @@ println("我的书单 ${mine.readlists.size} 份")
 
 ---
 
+### 12.7 评论 CommentApi（papi）
+
+> 评论同样**不在 eapi**（`/eapi/book/{id}/{hash}/reviews` 等 404），走网站前端的 papi：
+
+```cangjie
+import zlibraryAPI4CJ.*
+import zlibraryAPI4CJ.comment.*
+
+let page = CommentApi.book(client, 24126585, offset: 0)
+println("评论 ${page.comments.size} 条，关闭评论=${page.commentsDisabled}")
+for (comment in page.comments) {
+    let reply = if (comment.parentId == 0) { "" } else { "（回复）" }
+    println("${comment.user.name}${reply} ${comment.dateRelative} 赞${comment.likes}")
+    println("  ${comment.text}")
+}
+// 还有更多：offset 用本页条数递增（服务端忽略 limit，每页最多 100 条）
+if (page.comments.size >= 100) {
+    let next = CommentApi.book(client, 24126585, offset: page.nextOffset(0))
+    println("下一页 ${next.comments.size} 条")
+}
+
+// 书单评论
+let listComments = CommentApi.booklist(client, 36258, offset: 0)
+println("书单评论 ${listComments.comments.size} 条")
+```
+
+| 参数 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `client` | `ZlibClient` | — | 客户端 |
+| `bookId` / `readlistId` | `Int64` | — | 书 id（**不是 hash**）/ 书单 id |
+| `offset` | `Int64` | `0` | 跳过前 N 条 |
+
+协议与实测记录（2026-11-11）：
+
+- 路径最后一段是 **offset**：`0` 从第一条开始，`1` 跳过第一条（返回 99 条）；
+  offset 超出总数时返回 `{"success":1,"comments":[]}`。
+- `limit` 参数服务端**忽略**（5/20/50/500 实测都返回最多 100 条），分页只能靠 offset。
+- 匿名可读；登录后会带 `currentUser` 与每条评论的 `status`（是否已赞）。
+- 评论按时间升序；`parent_id` 非 0 表示回复，父评论可能不在同一页。
+- 点赞在 `reactionsInfo.reactions`（`item_id` / `count` / `status`），
+  `BookCommentsPage.fromRoot` 已合并到 `BookComment.likes` / `liked`。
+- `commentsDisabled` 表示该书是否关闭评论。
+
+---
+
 ## 13. 数据模型
 
 所有模型都在 `zlibraryAPI4CJ.model`，根包已 re-export，`import zlibraryAPI4CJ.*` 即可用。
@@ -2508,6 +2556,17 @@ println("${format.extension} ${format.sizeText()}")   // azw3 5.04 MB 级别的�
 
 `BooklistPage.owners` 是 `HashMap<String, ReadlistOwner>`（key 是 user id 的字符串），
 `BooklistPage.previews` 是 `HashMap<String, ArrayList<ReadlistPreviewBook>>`（key 是书单 id 的字符串）。
+
+---
+
+### 13.9 评论模型（BookComment / CommentUser / BookCommentsPage）
+
+| 类型 | 关键字段 | 说明 |
+| --- | --- | --- |
+| `BookComment` | `id` `objectType` `objectId` `parentId` `userId` `text` `date` `dateRelative` `user` `likes` `liked` | 一条评论；`parentId==0` 为顶层，否则是回复 |
+| `CommentUser` | `name` `avatar` `cover` `hash` `isPremium` `isCurrentUser` `isAdmin` | 评论作者 |
+| `CommentReaction` | `itemId` `status` `count` `users` | 单条评论的点赞信息 |
+| `BookCommentsPage` | `comments` `commentsDisabled` `reactions` | 评论页；`nextOffset(offset)` 计算下一段起点 |
 
 ---
 

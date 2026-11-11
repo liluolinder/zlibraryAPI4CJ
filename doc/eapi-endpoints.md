@@ -417,9 +417,19 @@ eapi 没有书单/评论接口；网站前端用 `papi` 内部 JSON。本库的 
 > 注：网页 HTML（`/booklists`、`/book/{id}/{hash}` 等）会对非浏览器请求返回
 > 503 + JS Cookie 挑战，挑战通过后仍提示 `Try again later`；因此不要抓 HTML。
 
-## 附录：评论/评分
+## 附录：评论（papi，2026-11-11 实测）
 
-- eapi：`/eapi/book/{id}/{hash}/reviews`、`/comments`、`/ratings` 等均 404；
-  书籍详情 JSON 无评论字段。
-- papi：`/papi/book/{id}/{hash}/get-reviews/1`、`get-comments/1` 等均 404。
-- 可用字段：`BookInfo.qualityScore` / `BookInfo.interestScore`（服务端返回的字符串评分）。
+eapi 没有评论接口（`/eapi/book/{id}/{hash}/reviews`、`/comments` 等 404）。
+评论在网站前端的 papi：
+
+| 方法 | 路径 | 鉴权 | 返回 |
+| --- | --- | --- | --- |
+| GET | `/papi/comments/{object}/{objectId}/{offset}?limit=500` | 否（登录更完整） | `comments` / `commentsDisabled` / `reactionsInfo` |
+
+- `object` = `book` / `booklist`；`bookId` 是数字 id（不是 hash）。
+- 路径末段是 **offset**（0 起，`1` 表示跳过首条）；`limit` 服务端忽略，
+  每页固定最多 100 条。
+- `parent_id` 非 0 表示回复；点赞数在 `reactionsInfo.reactions[].count`。
+- 真实样本（书 24126585，offset=0）：100 条，首条 2023-11-03，末条 2026-11-10。
+
+另：`BookInfo.qualityScore` / `BookInfo.interestScore` 是服务端给的评分字符串。

@@ -25,6 +25,7 @@ import zlibraryAPI4CJ.search.*
 import zlibraryAPI4CJ.user.*
 import zlibraryAPI4CJ.info.*
 import zlibraryAPI4CJ.booklist.*
+import zlibraryAPI4CJ.comment.*
 
 // ===========================================================================
 // 2. 安装与依赖：最小可运行示例
@@ -1228,6 +1229,25 @@ func doc12_6_booklistFilters(client: ZlibClient): Unit {
     let colorFiltered = BooklistApi.list(client, color: Some("all"))
     let privateOnly = BooklistApi.list(client, access: Some("private"))
     println("${newest.readlists.size} / ${colorFiltered.readlists.size} / ${privateOnly.readlists.size}")
+}
+
+// ===========================================================================
+// 12.7 评论（papi）
+// ===========================================================================
+
+func doc12_7_comments(client: ZlibClient): Unit {
+    let page = CommentApi.book(client, 24126585, offset: 0)
+    println("评论 ${page.comments.size} 条，关闭评论=${page.commentsDisabled}")
+    for (comment in page.comments) {
+        println("${comment.user.name} ${comment.dateRelative} 赞${comment.likes}")
+        println("  ${comment.text}")
+    }
+    if (page.comments.size >= 100) {
+        let next = CommentApi.book(client, 24126585, offset: page.nextOffset(0))
+        println("下一页 ${next.comments.size} 条")
+    }
+    let listComments = CommentApi.booklist(client, 36258, offset: 0)
+    println("书单评论 ${listComments.comments.size} 条")
 }
 
 // ===========================================================================

@@ -18,6 +18,7 @@
  * | `zlibraryAPI4CJ.user`   | 个人资料、收藏列表、下载历史、个性化推荐、资料更新 |
  * | `zlibraryAPI4CJ.info`   | 站点信息（语言/扩展名/域名/套餐），返回原始 JSON |
  * | `zlibraryAPI4CJ.booklist` | 书单（papi：列表 / 我的书单 / 书单内图书）；eapi 没有书单接口 |
+ * | `zlibraryAPI4CJ.comment` | 评论（papi：书/书单评论、点赞、回复）；eapi 没有评论接口 |
  *
  * 依赖方向：`core ← model ← 业务子包`。业务子包之间**互不 import**，
  * 所有共享类型都下沉到 `model`，这样既避免循环依赖，也让每个子包能独立测试。

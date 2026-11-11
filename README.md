@@ -38,6 +38,9 @@
 - **书单（2.5.0）**：eapi 没有书单接口，本库通过网站前端的 **papi** 抓取——
   `BooklistApi.list` / `BooklistApi.my` / `BooklistApi.books`，返回书单列表、
   作者、预览封面与书单内的完整 `BookInfo` 列表。
+- **评论（2.6.0）**：同样走 papi：`CommentApi.book` / `CommentApi.booklist`，
+  返回评论正文、作者、相对时间、回复关系与点赞（`reactionsInfo` 已合并进 `BookComment.likes`），
+  按 offset 分页（服务端忽略 limit，每页最多 100 条）。
 - **文档示例可编译**：`doccheck/` 工程把 `API_USAGE.md` 的示例全部编译一遍。
 
 ---
@@ -261,6 +264,7 @@ try {
 | `zlibraryAPI4CJ.user` | `UserApi` | 个人资料、收藏列表、下载历史、个性化推荐、资料更新、隐藏横幅、捐赠信息 |
 | `zlibraryAPI4CJ.info` | `InfoApi` | 站点信息：语言、扩展名、域名、套餐（形状不稳定，返回原始 JSON） |
 | `zlibraryAPI4CJ.booklist` | `BooklistApi` | 书单：公开/我的书单列表（papi `get-page`）、书单内图书（papi `get-books`）；eapi 无此接口 |
+| `zlibraryAPI4CJ.comment` | `CommentApi` | 评论：书/书单的评论列表（papi `comments/{object}/{id}/{offset}`，含点赞与回复关系） |
 
 根包已 `public import` 了 `core.*` 与 `model.*`，所以 `import zlibraryAPI4CJ.*`
 就能拿到客户端、凭证、错误类型与全部模型；业务接口再按需 import 对应子包。
@@ -294,13 +298,15 @@ zlibraryAPI4CJ/
     ├── model/                 # 共享数据模型
     │   ├── model_pkg.cj  book.cj  user.cj  download.cj  page.cj
     │   ├── booklist.cj        # 书单 / 作者 / 预览书籍 / 书单书籍页
+    │   ├── comment.cj         # 评论 / 评论作者 / 点赞 / 评论页
     │   └── model_test.cj
     ├── login/                 # LoginApi / LoginResult
     ├── book/                  # BookApi
     ├── search/                # SearchApi
     ├── user/                  # UserApi
     ├── info/                  # InfoApi
-    └── booklist/              # BooklistApi（papi）
+    ├── booklist/              # BooklistApi（papi）
+    └── comment/               # CommentApi（papi）
 ```
 
 ---

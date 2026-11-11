@@ -835,3 +835,22 @@ store.store(sitesValue.current().url, headers.toArray())
   能用的「评分」只有 `BookInfo.qualityScore` / `interestScore`（服务端已有字段）。
 - 采集验证：真实账号登录后，`get-page` 与 `get-books` 均返回 200；
   seline_read 书单页/书单详情截图验收通过（见 seline_read README）。
+### 18.10 评论：用户给了正确 papi 路径（2.6.0）
+
+18.9 里「评论没有接口」的结论**是错的**：当时候选路径没覆盖到真实形态。
+用户直接给出 `https://zh.eva101.ru/papi/comments/book/24126585/0?limit=500`，
+实测可用：
+
+- `GET /papi/comments/{object}/{objectId}/{offset}?limit=500`
+  （`object` = `book` / `booklist`；`objectId` 是数字 id；路径末段是 offset）。
+- **limit 被服务端忽略**：5/20/50/500 都返回最多 100 条；offset=1 返回 99 条、
+  offset=100 返回空。分页只能靠 offset 递增。
+- 匿名可读；登录后带 `currentUser` 与每条评论的 `status`（是否已赞）。
+- 响应含 `commentsDisabled` 与 `reactionsInfo.reactions`（点赞数），
+  模型层把点赞合并进 `BookComment.likes` / `liked`。
+- 书籍详情 JSON 仍然没有评论字段——评论是独立接口，和详情无关。
+- 实现：`model/comment.cj` + `comment` 子包（`CommentApi.book` / `.booklist`），
+  3 个离线单测；库测试 150 通过。桌面端详情页接入了评论列表（用户截图验收）。
+- 教训：papi 的路径形态（`comments/{object}/{id}/{offset}`、`booklist/{id}/get-books/{page}`）
+  与 eapi 的 RPC 风格差别很大，猜路径不如直接看前端请求；拿到一个真实样例后
+  再沿同一命名法探测，命中率高得多。

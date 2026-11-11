@@ -67,7 +67,8 @@ zlibraryAPI4CJ (root: 只做 public import core.* 与 model.*)
 ├── search  图书搜索、最热门、最近上传
 ├── user    个人资料、收藏列表、下载历史、个性化推荐、资料更新
 ├── info    站点信息（语言 / 扩展名 / 域名 / 套餐），返回原始 JSON
-└── booklist 书单（papi：列表 / 我的书单 / 书单内图书；eapi 无此接口）
+├── booklist 书单（papi：列表 / 我的书单 / 书单内图书；eapi 无此接口）
+└── comment  评论（papi：书/书单的评论、点赞、回复；eapi 无此接口）
 ```
 
 **依赖方向严格单向：`core ← model ← 业务子包`，业务子包之间互不 import。**
@@ -96,6 +97,7 @@ zlibraryAPI4CJ (root: 只做 public import core.* 与 model.*)
 | | `download.cj` | `DownloadInfo`（签名下载链接 + 文件名生成） |
 | | `page.cj` | `Pagination`、`BookPage` |
 | | `booklist.cj` | `Readlist`、`ReadlistOwner`、`ReadlistPreviewBook`、`BooklistPage`、`BooklistBooksPage` |
+| | `comment.cj` | `BookComment`、`CommentUser`、`CommentReaction`、`BookCommentsPage` |
 | | `model_test.cj` | 固定 JSON 样本的解码 / 派生测试 |
 | `book` | `book.cj` | `BookApi`：`info` / `infoOf` / `similar` / `similarOf` / `file` / `fileOf` / `formats` / `save` / `saveBrief` / `unsave` / `unsaveBrief` / `remove` / `sendTo` / `download` / `downloadBook` |
 | | `book_pkg.cj` | 包文档（覆盖的端点表） |
@@ -115,6 +117,9 @@ zlibraryAPI4CJ (root: 只做 public import core.* 与 model.*)
 | `booklist` | `booklist.cj` | `BooklistApi`：`list` / `my` / `books`（papi，`GET /booklist/get-page/{page}`、`POST /booklist/{id}/get-books/{page}`） |
 | | `booklist_pkg.cj` | 包文档（papi 协议、与 eapi 的区别、实测记录） |
 | | `booklist_test.cj` | 离线单测（书单列表 / 预览书 / 书单书籍页解码） |
+| `comment` | `comment.cj` | `CommentApi`：`book` / `booklist`（papi，`GET /comments/{object}/{id}/{offset}`） |
+| | `comment_pkg.cj` | 包文档（papi 协议、offset 分页、点赞合并） |
+| | `comment_test.cj` | 离线单测（评论/回复/点赞解码） |
 
 每个子包一个 `*_pkg.cj`，只放 `package` 声明、必要的 import 和**包级文档注释**
 （说明这个包覆盖哪些端点、有哪些坑）。根包 `src/zlibraryAPI4CJ.cj` 只做
