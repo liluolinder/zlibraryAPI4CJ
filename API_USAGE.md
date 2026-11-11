@@ -29,6 +29,7 @@
 10. [search 搜索](#10-search-搜索)
 11. [user 用户](#11-user-用户)
 12. [info 站点信息](#12-info-站点信息)
+    - [12.6 书单 BooklistApi（papi）](#126-书单-booklistapi-papi)
 13. [数据模型](#13-数据模型)
 14. [工具函数](#14-工具函数)
 15. [常见任务配方](#15-常见任务配方)
@@ -1177,6 +1178,9 @@ try {
 | `InfoApi.languages(client)` | GET | `/info/languages` | 否 | `JsonObject` |
 | `InfoApi.extensions(client)` | GET | `/info/extensions` | 否 | `JsonObject` |
 | `InfoApi.domains(client)` | GET | `/info/domains` | 否 | `JsonObject` |
+| `BooklistApi.list(client, page!, order!, searchQuery!, color!, access!)` | GET | `/papi/booklist/get-page/{page}` | 否 | `BooklistPage` |
+| `BooklistApi.my(client, page!, order!, searchQuery!)` | GET | `/papi/booklist/get-page/{page}?access=private` | 需要 | `BooklistPage` |
+| `BooklistApi.books(client, readlistId, page!)` | POST | `/papi/booklist/{id}/get-books/{page}` | 否 | `BooklistBooksPage` |
 | `InfoApi.plans(client, switchLanguage!)` | GET | `/info/plans` | 否 | `JsonObject` |
 
 > **本章之后所有示例的约定**：`client` 已按第 3 章创建（游客或登录态）；
@@ -2196,6 +2200,68 @@ println("会员=${user.isPremium}")
 
 ---
 
+### 12.6 书单 BooklistApi（papi，非 eapi）
+
+> ⚠ 书单**不在 eapi 里**（实测 `/eapi/booklists`、`/eapi/book/{id}/{hash}/reviews`
+> 都是 404）。Z-Library 网站前端用的是内部 **papi** 接口，本库为它单独提供了
+> `zlibraryAPI4CJ.booklist` 子包；`BooklistApi` 与其它接口一样以 `ZlibClient`
+> 为首参，共用连接池、凭证、换站与重试。
+
+```cangjie
+import zlibraryAPI4CJ.*
+import zlibraryAPI4CJ.booklist.*
+
+// 1) 公开书单列表（第 1 页，按热度排序）
+let page = BooklistApi.list(client, page: 1, order: "popular")
+for (readlist in page.readlists) {
+    println("${readlist.title} — ${readlist.ownerName(page)} / ${readlist.booksCount} 本")
+    // 卡片预览：每份书单自带前几本书（含 coverUrl）
+    if (let Some(previews) <- page.previewOf(readlist.id)) {
+        for (book in previews) {
+            println("  预览：${book.title} ${book.coverUrl}")
+        }
+    }
+}
+println("下一页页码：${page.nextPage}") // 0 表示没有更多
+
+// 2) 书单里的书（分页；字段与 BookInfo 一致）
+if (!page.readlists.isEmpty()) {
+    let books = BooklistApi.books(client, page.readlists[0].id, page: 1)
+    println("共 ${books.totalItems} 本，当前第 ${books.current}/${books.totalPages} 页")
+    for (book in books.books) {
+        println("${book.title} / ${book.author} / ${book.extension}")
+    }
+}
+
+// 3) 我的书单（需要登录）
+let mine = BooklistApi.my(client)
+println("我的书单 ${mine.readlists.size} 份")
+```
+
+| 参数（list） | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `client` | `ZlibClient` | — | 客户端 |
+| `page` | `Int64` | `1` | 页码 |
+| `order` | `String` | `"popular"` | 排序：`popular` / …（服务端定义，原样透传） |
+| `searchQuery` | `String` | `""` | 书单搜索关键词 |
+| `color` | `?String` | `None` | 配色筛选；`None` 不发送 |
+| `access` | `?String` | `None` | `public` / `private`（`private` 需登录） |
+
+`BooklistApi.books` 的 `page` 参数同时出现在**路径**与 POST 表单里（服务端两端都读）。
+
+协议与实测记录：
+
+- 列表：`GET /papi/booklist/get-page/{page}?order=popular&searchQuery=&color=all&access=public`；
+  返回 `readlists`、`readlistsOwners`（user id → 昵称）、`booksGrouped`（书单 id → 前几本书）、`nextPage`。
+- 书籍：`POST /papi/booklist/{id}/get-books/{page}`，表单 `page={page}`；
+  返回 `books`（每项 `{"book": {...}}`）与 `pagination`。
+- papi 错误也返回 JSON：`{"success":0,"error":"Requested page not found"}`，
+  客户端会把它转成 `ZlibError.apiFailure`。
+- 网页 HTML（`/booklists`、`/book/...`）对非浏览器请求返回 **503 + JS Cookie 挑战**，
+  所以不要尝试解析 HTML，直接用 papi JSON。
+
+---
+
 ## 13. 数据模型
 
 所有模型都在 `zlibraryAPI4CJ.model`，根包已 re-export，`import zlibraryAPI4CJ.*` 即可用。
@@ -2427,6 +2493,21 @@ println("${format.extension} ${format.sizeText()}")   // azw3 5.04 MB 级别的�
 
 > 同一本书的每个格式版本都有**独立的 `id` + `hash`**；下载指定格式时用对应条目
 > 调 `BookApi.file()`，而不是原书。
+
+---
+
+### 13.8 书单模型（Readlist / BooklistPage / BooklistBooksPage）
+
+| 类型 | 关键字段 | 说明 |
+| --- | --- | --- |
+| `Readlist` | `id` `userId` `title` `description` `languages` `publicReadlist` `adult` `editorsChoice` `viewsCount` `booksCount` `favoritesCount` `commentsCount` `color` `date` `dateUpdated` `link` | 一份书单；`ownerName(page)` 从 `BooklistPage.owners` 取作者昵称 |
+| `ReadlistOwner` | `id` `name` `link` `avatar` | 书单作者 |
+| `ReadlistPreviewBook` | `id` `title` `author` `cover` `coverUrl` `link` `language` `identifier` | 列表页的预览书（`coverUrl` 是绝对地址） |
+| `BooklistPage` | `readlists` `favoriteReadlists` `owners` `previews` `nextPage` | 书单列表页；`previewOf(id)` 取预览书 |
+| `BooklistBooksPage` | `books` `limit` `current` `totalItems` `totalPages` `before` `next` | 书单内的书籍页；`books` 元素是完整的 `BookInfo` |
+
+`BooklistPage.owners` 是 `HashMap<String, ReadlistOwner>`（key 是 user id 的字符串），
+`BooklistPage.previews` 是 `HashMap<String, ArrayList<ReadlistPreviewBook>>`（key 是书单 id 的字符串）。
 
 ---
 

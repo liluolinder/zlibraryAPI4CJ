@@ -66,7 +66,8 @@ zlibraryAPI4CJ (root: 只做 public import core.* 与 model.*)
 ├── book    图书详情、相似图书、下载信息、收藏 / 取消收藏 / 删除、发送到 Kindle/邮箱、落盘
 ├── search  图书搜索、最热门、最近上传
 ├── user    个人资料、收藏列表、下载历史、个性化推荐、资料更新
-└── info    站点信息（语言 / 扩展名 / 域名 / 套餐），返回原始 JSON
+├── info    站点信息（语言 / 扩展名 / 域名 / 套餐），返回原始 JSON
+└── booklist 书单（papi：列表 / 我的书单 / 书单内图书；eapi 无此接口）
 ```
 
 **依赖方向严格单向：`core ← model ← 业务子包`，业务子包之间互不 import。**
@@ -81,7 +82,7 @@ zlibraryAPI4CJ (root: 只做 public import core.* 与 model.*)
 | 子包 | 文件 | 职责 |
 | --- | --- | --- |
 | `core` | `core_pkg.cj` | 包文档、常量 `ZLIB_API_PREFIX` / `ZLIB_DEFAULT_SITE_LANGUAGE` |
-| | `client.cj` | `ZlibClient`（请求 / 信封解包 / 自动重试 / 派生 / 下载）、`ZlibClientConfig` |
+| | `client.cj` | `ZlibClient`（请求 / 信封解包 / 自动重试 / 派生 / 下载 / papi 请求 `getPapiJson` / `postPapiFormJson`）、`ZlibClientConfig` |
 | | `site.cj` | `ZlibSites`（自定义站 + 种子站换站）、`ZlibSiteSnapshot`、`planSiteRefresh` / `fetchSeedDomains` / `extractDomainList` / `normalizeDomain` |
 | | `credential.cj` | `ZlibCredential`：`remix_userid` / `remix_userkey` / `siteLanguage` |
 | | `host.cj` | `ZlibHost`、`ZlibProbe`、`probeSite` / `checkAccess` / `canAccessZlib` / `resolveZlibHost` |
@@ -94,6 +95,7 @@ zlibraryAPI4CJ (root: 只做 public import core.* 与 model.*)
 | | `user.cj` | `ZlibUser` |
 | | `download.cj` | `DownloadInfo`（签名下载链接 + 文件名生成） |
 | | `page.cj` | `Pagination`、`BookPage` |
+| | `booklist.cj` | `Readlist`、`ReadlistOwner`、`ReadlistPreviewBook`、`BooklistPage`、`BooklistBooksPage` |
 | | `model_test.cj` | 固定 JSON 样本的解码 / 派生测试 |
 | `book` | `book.cj` | `BookApi`：`info` / `infoOf` / `similar` / `similarOf` / `file` / `fileOf` / `formats` / `save` / `saveBrief` / `unsave` / `unsaveBrief` / `remove` / `sendTo` / `download` / `downloadBook` |
 | | `book_pkg.cj` | 包文档（覆盖的端点表） |
@@ -110,6 +112,9 @@ zlibraryAPI4CJ (root: 只做 public import core.* 与 model.*)
 | `info` | `info.cj` | `InfoApi`：`site` / `languages` / `extensions` / `domains` / `plans`（均返回 `JsonObject`） |
 | | `info_pkg.cj` | 包文档 |
 | | `info_test.cj` | 离线单测（信封解析、原始 JSON 读取） |
+| `booklist` | `booklist.cj` | `BooklistApi`：`list` / `my` / `books`（papi，`GET /booklist/get-page/{page}`、`POST /booklist/{id}/get-books/{page}`） |
+| | `booklist_pkg.cj` | 包文档（papi 协议、与 eapi 的区别、实测记录） |
+| | `booklist_test.cj` | 离线单测（书单列表 / 预览书 / 书单书籍页解码） |
 
 每个子包一个 `*_pkg.cj`，只放 `package` 声明、必要的 import 和**包级文档注释**
 （说明这个包覆盖哪些端点、有哪些坑）。根包 `src/zlibraryAPI4CJ.cj` 只做
@@ -117,7 +122,7 @@ zlibraryAPI4CJ (root: 只做 public import core.* 与 model.*)
 
 ### 3.2 命名与可见性
 
-- 包名：`zlibraryAPI4CJ.core` / `.model` / `.login` / `.book` / `.search` / `.user` / `.info`。
+- 包名：`zlibraryAPI4CJ.core` / `.model` / `.login` / `.book` / `.search` / `.user` / `.info` / `.booklist`。
 - 根包导出后，调用方写 `import zlibraryAPI4CJ.*` 拿客户端与模型，
   再按需 `import zlibraryAPI4CJ.book.*` 等。
 - 纯内部实现（如 `resolveLocation`、`originOf`、`jsonToInt`）一律 `internal func` 或

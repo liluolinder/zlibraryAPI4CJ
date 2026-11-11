@@ -24,6 +24,7 @@ import zlibraryAPI4CJ.book.*
 import zlibraryAPI4CJ.search.*
 import zlibraryAPI4CJ.user.*
 import zlibraryAPI4CJ.info.*
+import zlibraryAPI4CJ.booklist.*
 
 // ===========================================================================
 // 2. 安装与依赖：最小可运行示例
@@ -1192,6 +1193,41 @@ func doc15_3_searchWithRecovery(domain: String, seeds: Array<String>,
         println("本次使用的站点：${client.currentSiteUrl()}")
         client.close()
     }
+}
+
+// ===========================================================================
+// 12.6 书单（papi）
+// ===========================================================================
+
+func doc12_6_booklists(client: ZlibClient): Unit {
+    let page = BooklistApi.list(client, page: 1, order: "popular")
+    for (readlist in page.readlists) {
+        println("${readlist.title} — ${readlist.ownerName(page)} / ${readlist.booksCount} 本")
+        if (let Some(previews) <- page.previewOf(readlist.id)) {
+            for (book in previews) {
+                println("  预览：${book.title} ${book.coverUrl}")
+            }
+        }
+    }
+    println("下一页页码：${page.nextPage}")
+
+    if (!page.readlists.isEmpty()) {
+        let books = BooklistApi.books(client, page.readlists[0].id, page: 1)
+        println("共 ${books.totalItems} 本，当前第 ${books.current}/${books.totalPages} 页")
+        for (book in books.books) {
+            println("${book.title} / ${book.author} / ${book.extension}")
+        }
+    }
+
+    let mine = BooklistApi.my(client)
+    println("我的书单 ${mine.readlists.size} 份")
+}
+
+func doc12_6_booklistFilters(client: ZlibClient): Unit {
+    let newest = BooklistApi.list(client, page: 2, order: "newest", searchQuery: "rust")
+    let colorFiltered = BooklistApi.list(client, color: Some("all"))
+    let privateOnly = BooklistApi.list(client, access: Some("private"))
+    println("${newest.readlists.size} / ${colorFiltered.readlists.size} / ${privateOnly.readlists.size}")
 }
 
 // ===========================================================================

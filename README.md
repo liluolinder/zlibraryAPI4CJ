@@ -35,6 +35,9 @@
   单条脏数据自动跳过。
 - **分页封装**：列表接口返回 `BookPage`（`hasMore()` / `nextPage()` / `first()`），
   不用调用方自己推分页逻辑。
+- **书单（2.5.0）**：eapi 没有书单接口，本库通过网站前端的 **papi** 抓取——
+  `BooklistApi.list` / `BooklistApi.my` / `BooklistApi.books`，返回书单列表、
+  作者、预览封面与书单内的完整 `BookInfo` 列表。
 - **文档示例可编译**：`doccheck/` 工程把 `API_USAGE.md` 的示例全部编译一遍。
 
 ---
@@ -257,6 +260,7 @@ try {
 | `zlibraryAPI4CJ.search` | `SearchApi` | 图书搜索（年份/语言/扩展名/排序）、最热门、最近上传 |
 | `zlibraryAPI4CJ.user` | `UserApi` | 个人资料、收藏列表、下载历史、个性化推荐、资料更新、隐藏横幅、捐赠信息 |
 | `zlibraryAPI4CJ.info` | `InfoApi` | 站点信息：语言、扩展名、域名、套餐（形状不稳定，返回原始 JSON） |
+| `zlibraryAPI4CJ.booklist` | `BooklistApi` | 书单：公开/我的书单列表（papi `get-page`）、书单内图书（papi `get-books`）；eapi 无此接口 |
 
 根包已 `public import` 了 `core.*` 与 `model.*`，所以 `import zlibraryAPI4CJ.*`
 就能拿到客户端、凭证、错误类型与全部模型；业务接口再按需 import 对应子包。
@@ -289,12 +293,14 @@ zlibraryAPI4CJ/
     │   └── core_test.cj
     ├── model/                 # 共享数据模型
     │   ├── model_pkg.cj  book.cj  user.cj  download.cj  page.cj
+    │   ├── booklist.cj        # 书单 / 作者 / 预览书籍 / 书单书籍页
     │   └── model_test.cj
     ├── login/                 # LoginApi / LoginResult
     ├── book/                  # BookApi
     ├── search/                # SearchApi
     ├── user/                  # UserApi
-    └── info/                  # InfoApi
+    ├── info/                  # InfoApi
+    └── booklist/              # BooklistApi（papi）
 ```
 
 ---

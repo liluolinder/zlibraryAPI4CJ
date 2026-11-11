@@ -811,3 +811,27 @@ store.store(sitesValue.current().url, headers.toArray())
 - 调用方判断：`kind == Cangjie` 即底层失败，再用 `cause` 区分网络/文件/stdx；
 - 单测：原 Transport 用例改用 `BadResponse`（可换站类别）模拟重试，
   新增 `testCangjieRetryableFromCause`；共 143 通过。
+### 18.9 书单：eapi 没有，papi 有（2.5.0）
+
+用户想加书单功能，实测结论与决策过程：
+
+- **eapi 无书单/评论接口**：`/eapi/booklists`、`/eapi/booklist/{id}`、
+  `/eapi/user/booklists`、`/eapi/book/{id}/{hash}/reviews`、`/comments` 全部 404；
+  书籍详情 JSON 只有 `book`，字段里没有评论/评分/书单。
+- **网页 HTML 被反爬挡死**：`/`、`/book/…`、`/booklists` 对 curl / .NET / **无头 Edge**
+  都返回 503 + JS Cookie 挑战，挑战通过后仍回
+  `Try again later or contact us support@z-lib.bz`。所以「解析网页 HTML」这条路
+  在本机环境不可行，不要浪费时间在 HTML 解析上。
+- **papi 可用**（网站前端内部 JSON，和 eapi 共用 Cloudflare 与同一站点）：
+  - 列表：`GET /papi/booklist/get-page/{page}?order=popular&searchQuery=&color=all&access=public`
+    返回 `readlists` / `readlistsOwners` / `booksGrouped`（书单 id → 前几本书）/ `nextPage`；
+  - 书籍：**POST** `/papi/booklist/{id}/get-books/{page}`，表单 `page={page}`
+    （GET 会 404；不传表单也能返回默认第一页，但显式传更稳）。
+  - papi 错误也是 JSON：`{"success":0,"error":"Requested page not found"}`。
+- 实现：`ZlibClient.getPapiJson` / `postPapiFormJson`（复用连接池、凭证、换站、重试）
+  + `model/booklist.cj` + `booklist` 子包；4 个离线单测，库测试从 143 → 147 全过。
+- **评论仍然没有**：eapi/papi 的各种 `comments|reviews|opinions|ratings` 猜测全部 404；
+  书单 JSON 里的 `comments_count` 实测都是 0，没有对应列表端点。
+  能用的「评分」只有 `BookInfo.qualityScore` / `interestScore`（服务端已有字段）。
+- 采集验证：真实账号登录后，`get-page` 与 `get-books` 均返回 200；
+  seline_read 书单页/书单详情截图验收通过（见 seline_read README）。

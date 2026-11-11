@@ -400,3 +400,26 @@ HTTP/1.1 400
 
 > 写操作测试遵守「不破坏用户数据」：先读原状态，已收藏的书跳过；测试造成的收藏会取消还原。
 > 若测试被中断，可用 `ZLIB_TEST_STAGE=cleanup` 清理固定测试书（id 17309781）的收藏残留。
+---
+
+## 附录：papi 书单接口（非 eapi，2026-11-11 实测）
+
+eapi 没有书单/评论接口；网站前端用 `papi` 内部 JSON。本库的 `booklist` 子包覆盖：
+
+| 能力 | 方法 | 路径 | 鉴权 | 返回 |
+| --- | --- | --- | --- | --- |
+| 公开书单列表 | GET | `/papi/booklist/get-page/{page}?order=&searchQuery=&color=&access=public` | 否 | `readlists` + `readlistsOwners` + `booksGrouped` + `nextPage` |
+| 我的书单 | GET | 同上，`access=private` | 是 | 同上（未登录可能为空/失败） |
+| 书单内图书 | POST | `/papi/booklist/{id}/get-books/{page}`（表单 `page`） | 否 | `books`（每项 `{"book": …}`）+ `pagination` |
+
+失败样例：`{"success":0,"error":"Requested page not found"}`（HTTP 404）。
+
+> 注：网页 HTML（`/booklists`、`/book/{id}/{hash}` 等）会对非浏览器请求返回
+> 503 + JS Cookie 挑战，挑战通过后仍提示 `Try again later`；因此不要抓 HTML。
+
+## 附录：评论/评分
+
+- eapi：`/eapi/book/{id}/{hash}/reviews`、`/comments`、`/ratings` 等均 404；
+  书籍详情 JSON 无评论字段。
+- papi：`/papi/book/{id}/{hash}/get-reviews/1`、`get-comments/1` 等均 404。
+- 可用字段：`BookInfo.qualityScore` / `BookInfo.interestScore`（服务端返回的字符串评分）。
