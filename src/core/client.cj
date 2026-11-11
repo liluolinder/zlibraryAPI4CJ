@@ -384,6 +384,34 @@ public class ZlibClient <: Resource & ToString {
             path: path)
     }
 
+    /**
+     * 拼出 papi 地址（`<当前站点>/papi<path>`）。
+     *
+     * papi 是网站前端自己用的内部 JSON 接口（书单等少数功能只有它有），
+     * 与 eapi 共用请求头、连接池、Cookie 与换站/重试策略，只是路径前缀不同。
+     */
+    public func papiUrl(path: String): String {
+        hostPapiUrl(sitesValue.current(), path)
+    }
+
+    /** GET papi：返回原始 JSON 根对象（自动重试 + 换站 + 带凭证）。 */
+    public func getPapiJson(path: String,
+        query!: Array<(String, String)> = Array<(String, String)>()): JsonObject {
+        ensureOpen()
+        execute<JsonObject>({ host =>
+            parsePapiResponse(sendPapiGet(host, path, query), path)
+        }, refreshOnFailure: true, path: path)
+    }
+
+    /** POST 表单 papi：返回原始 JSON 根对象（papi 的书籍/评论列表用 POST）。 */
+    public func postPapiFormJson(path: String,
+        form: Array<(String, String)>): JsonObject {
+        ensureOpen()
+        execute<JsonObject>({ host =>
+            parsePapiResponse(sendPapiForm(host, path, form), path)
+        }, refreshOnFailure: true, path: path)
+    }
+
     /** GET 并解析信封（调用方自己决定怎么处理 `success`）。 */
     public func getEnvelope(path: String,
         query!: Array<(String, String)> = Array<(String, String)>()): ZlibEnvelope {
@@ -582,6 +610,48 @@ public class ZlibClient <: Resource & ToString {
         } else {
             "${host.eapi}/${path}"
         }
+    }
+
+    /** papi 地址：`<站点>/papi<path>`。 */
+    private func hostPapiUrl(host: ZlibHost, path: String): String {
+        if (path.startsWith("/")) {
+            "${host.url}/papi${path}"
+        } else {
+            "${host.url}/papi/${path}"
+        }
+    }
+
+    /** 发一次 papi GET；非 2xx 统一转成 `ZlibError`。 */
+    private func sendPapiGet(host: ZlibHost, path: String,
+        query: Array<(String, String)>): String {
+        let url = withQuery(hostPapiUrl(host, path), query)
+        let response = http.get(url, headers: requestHeaders(host), timeouts: None)
+        if (!response.ok) {
+            throw ZlibError.httpStatus(url, response.status,
+                truncateBytesSafe(response.text(), 200, suffix: ""))
+        }
+        response.text()
+    }
+
+    /** 发一次 papi POST 表单；非 2xx 统一转成 `ZlibError`。 */
+    private func sendPapiForm(host: ZlibHost, path: String,
+        form: Array<(String, String)>): String {
+        let url = hostPapiUrl(host, path)
+        let response = http.post(url, Body.form(form), headers: requestHeaders(host, hasBody: true))
+        if (!response.ok) {
+            throw ZlibError.httpStatus(url, response.status,
+                truncateBytesSafe(response.text(), 200, suffix: ""))
+        }
+        response.text()
+    }
+
+    /** papi 响应判定：`success=0` 时用服务端 error 文案抛业务错误。 */
+    private func parsePapiResponse(text: String, path: String): JsonObject {
+        let root = parseJsonObject(text, path: path)
+        if (readIntOr(root, "success", 1) == 0) {
+            throw ZlibError.apiFailure(path, readStringOr(root, "error", "papi 请求失败"))
+        }
+        root
     }
 
     /** 发一次 GET，返回响应体文本（不做重试，重试由 `execute` 负责）。 */
