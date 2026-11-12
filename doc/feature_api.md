@@ -51,7 +51,7 @@
 | `BookInfoBrief`（带 HTTP 方法） | `BookInfoBrief`（纯模型）+ `BookApi` | 同上 |
 | `DownloadInfo`（含 `download()`） | `DownloadInfo`（纯模型）+ `BookApi.download` / `client.download` | `fileName` 属性 → `fileName()` 方法 |
 | `common.zlibBaseUrl` / `zlibEAPI` / `changeUrl` | `ZlibHost` / `ZlibClient.baseUrl` / `withBaseUrl` / `ZlibSites` | 不再有全局变量；2.1.0 起「失败自动换站」由 `ZlibSites`（自定义站 + 种子站）管理 |
-| `common.canAccessZlib` / `checkAccess` | 同名顶层函数（签名变化） | 探测逻辑保留；自动换站用 `resolveZlibHost` 或 `ZlibClient.create(..., seeds: ...)` |
+| `common.canAccessZlib` / `checkAccess` | 同名顶层函数（签名变化） | 探测逻辑保留；自动换站用 `resolveZlibHost` 或 `ZlibClient.create(..., seed: ...)`（种子站是单个引导站） |
 | （无） | `ZlibCredential` | v1 用裸 cookie 字符串，v2 有了类型 |
 | （无） | `ZlibError` / `ZlibErrorKind` | v1 只有 `Exception` / `success=0` |
 | （无） | `ZlibEnvelope` | v1 每个接口一个 `XxxRes`，v2 统一信封 |

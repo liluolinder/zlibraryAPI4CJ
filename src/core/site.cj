@@ -15,7 +15,7 @@ import linderHttp.*
  * | 概念 | 来源 | 作用 |
  * | --- | --- | --- |
  * | **自定义站**（`customUrl`） | 调用方指定 | **所有请求优先用它** |
- * | **种子站**（`seeds`） | 调用方指定的稳定引导站 | 自定义站失败时，向种子站查询最新域名 |
+ * | **种子站**（`seed`） | 调用方指定的**单个**稳定引导站 | 自定义站失败时，向它查询最新域名（3xx `Location` 或域名列表） |
  *
  * 换站规则（由 `ZlibClient` 的自动重试触发）：
  *
@@ -37,8 +37,8 @@ public class ZlibSites {
     private let mutex: Mutex = Mutex()
     /** 当前自定义站（换站后会被覆盖）。 */
     private var customUrlValue: String
-    /** 种子站列表（按优先级从左到右）。 */
-    private var seedsValue: Array<String>
+    /** 种子站（单个引导站；空串表示未配置，自动换站不启用）。 */
+    private var seedUrlValue: String
     /** 两次种子刷新之间的最小间隔，避免失败风暴时把种子站打爆。 */
     private let refreshIntervalValue: Duration
     /** 从种子站拿不到域名时，是否允许退而使用种子站本身。 */
@@ -50,23 +50,21 @@ public class ZlibSites {
 
     /**
      * @param customUrl 初始自定义站（优先使用）
-     * @param seeds 种子站列表；空表示不启用换站，只做同址重试
+     * @param seed 种子站（单个引导站）；空表示不启用换站，只做同址重试
      * @param refreshInterval 两次种子刷新最小间隔（默认 30 秒）
      * @param fallbackToSeed 种子站拿不到域名时，是否允许直接用可达的种子站本身
      */
     public init(customUrl!: String = ZlibHost.DEFAULT_URL,
-        seeds!: Array<String> = Array<String>(),
+        seed!: String = "",
         refreshInterval!: Duration = Duration.second * 30,
         fallbackToSeed!: Bool = true) {
         this.customUrlValue = ZlibHost.of(customUrl).url
-        let normalized = ArrayList<String>()
-        for (seed in seeds) {
-            let text = seed.trimAscii()
-            if (!text.isEmpty()) {
-                normalized.add(ZlibHost.of(text).url)
-            }
+        let seedText = seed.trimAscii()
+        this.seedUrlValue = if (seedText.isEmpty()) {
+            ""
+        } else {
+            ZlibHost.of(seedText).url
         }
-        this.seedsValue = normalized.toArray()
         this.refreshIntervalValue = if (refreshInterval.toSeconds() < 0) {
             Duration.second * 30
         } else {
@@ -89,21 +87,17 @@ public class ZlibSites {
         }
     }
 
-    /** 种子站列表（副本，调用方修改不会影响本实例）。 */
-    public func seedUrls(): Array<String> {
+    /** 种子站地址（规范化后；空串表示未配置）。 */
+    public func seedUrl(): String {
         synchronized(mutex) {
-            let result = ArrayList<String>()
-            for (item in seedsValue) {
-                result.add(item)
-            }
-            result.toArray()
+            seedUrlValue
         }
     }
 
     /** 是否配置了种子站（没配置时自动换站无意义）。 */
-    public func hasSeeds(): Bool {
+    public func hasSeed(): Bool {
         synchronized(mutex) {
-            seedsValue.size > 0
+            !seedUrlValue.isEmpty()
         }
     }
 
@@ -153,18 +147,16 @@ public class ZlibSites {
         adoptUrl(url)
     }
 
-    /** 手动替换种子站列表（空数组表示关闭自动换站）。 */
-    public func setSeedUrls(seeds: Array<String>): Unit {
-        let normalized = ArrayList<String>()
-        for (seed in seeds) {
-            let text = seed.trimAscii()
-            if (!text.isEmpty()) {
-                normalized.add(ZlibHost.of(text).url)
-            }
+    /** 手动替换种子站（空串表示关闭自动换站）。 */
+    public func setSeedUrl(seed: String): Unit {
+        let text = seed.trimAscii()
+        let value = if (text.isEmpty()) {
+            ""
+        } else {
+            ZlibHost.of(text).url
         }
-        let value = normalized.toArray()
         synchronized(mutex) {
-            seedsValue = value
+            seedUrlValue = value
         }
     }
 
@@ -193,11 +185,7 @@ public class ZlibSites {
     /** 当前站点状态的不可变快照（用于日志、持久化、诊断）。 */
     public func snapshot(): ZlibSiteSnapshot {
         synchronized(mutex) {
-            let seeds = ArrayList<String>()
-            for (item in seedsValue) {
-                seeds.add(item)
-            }
-            ZlibSiteSnapshot(customUrlValue, seeds.toArray(), lastRefreshAtValue,
+            ZlibSiteSnapshot(customUrlValue, seedUrlValue, lastRefreshAtValue,
                 refreshCountValue, refreshIntervalValue.toSeconds(), fallbackToSeedValue)
         }
     }
@@ -208,19 +196,19 @@ public class ZlibSites {
      * `ZlibClient.withBaseUrl` 用它，保证「显式换站」不会污染原客户端。
      */
     public func withCustomUrl(url: String): ZlibSites {
-        ZlibSites(customUrl: url, seeds: seedUrls(),
+        ZlibSites(customUrl: url, seed: seedUrl(),
             refreshInterval: refreshIntervalValue, fallbackToSeed: fallbackToSeedValue)
     }
 
     /** 派生一个「换过种子站」的副本。 */
-    public func withSeeds(seeds: Array<String>): ZlibSites {
-        ZlibSites(customUrl: customUrl(), seeds: seeds,
+    public func withSeed(seed: String): ZlibSites {
+        ZlibSites(customUrl: customUrl(), seed: seed,
             refreshInterval: refreshIntervalValue, fallbackToSeed: fallbackToSeedValue)
     }
 
     public func toString(): String {
         synchronized(mutex) {
-            "ZlibSites(custom=${customUrlValue}, seeds=${seedsValue.size}, refreshCount=${refreshCountValue})"
+            "ZlibSites(custom=${customUrlValue}, seed=${seedUrlValue}, refreshCount=${refreshCountValue})"
         }
     }
 }
@@ -229,8 +217,8 @@ public class ZlibSites {
 public class ZlibSiteSnapshot <: ToString {
     /** 当前自定义站（实际请求用的地址）。 */
     public let currentUrl: String
-    /** 种子站列表。 */
-    public let seedUrls: Array<String>
+    /** 种子站（单个引导站；空串表示未配置）。 */
+    public let seedUrl: String
     /** 上次刷新时间（Unix 毫秒，0 表示尚未刷新）。 */
     public let lastRefreshAtMillis: Int64
     /** 累计刷新尝试次数。 */
@@ -240,10 +228,10 @@ public class ZlibSiteSnapshot <: ToString {
     /** 是否允许退用种子站本身。 */
     public let fallbackToSeed: Bool
 
-    public init(currentUrl: String, seedUrls: Array<String>, lastRefreshAtMillis: Int64,
+    public init(currentUrl: String, seedUrl: String, lastRefreshAtMillis: Int64,
         refreshCount: Int64, refreshIntervalSeconds: Int64, fallbackToSeed: Bool) {
         this.currentUrl = currentUrl
-        this.seedUrls = seedUrls
+        this.seedUrl = seedUrl
         this.lastRefreshAtMillis = lastRefreshAtMillis
         this.refreshCount = refreshCount
         this.refreshIntervalSeconds = refreshIntervalSeconds
@@ -251,7 +239,7 @@ public class ZlibSiteSnapshot <: ToString {
     }
 
     public func toString(): String {
-        "ZlibSiteSnapshot(current=${currentUrl}, seeds=${seedUrls.size}, refreshCount=${refreshCount})"
+        "ZlibSiteSnapshot(current=${currentUrl}, seed=${seedUrl}, refreshCount=${refreshCount})"
     }
 }
 
@@ -262,21 +250,21 @@ public class ZlibSiteSnapshot <: ToString {
 /**
  * 计算「该换到哪个站」。
  *
- * 依次尝试：
- * 1. 向每个种子站查询域名列表（`fetchDomains`），逐个探测，返回第一个可用的；
- * 2. 种子站本身 3xx → 用 `Location`（镜像入口常见）；
- * 3. 允许兜底时，种子站本身可达（200/503）→ 直接用种子站。
+ * 种子站是**单个引导站**，依次尝试：
+ * 1. 向它查询域名列表（`fetchDomains`），逐个探测，返回第一个可用的；
+ * 2. 它本身 3xx → 用响应头 `Location`（镜像入口最常见的换站方式）；
+ * 3. 允许兜底时，它本身可达（200/503）→ 直接用它。
  *
  * 全部失败返回 `None`（由调用方决定是否报错，不在这里抛异常）。
  *
- * @param seeds 种子站地址（按优先级）
+ * @param seed 种子站地址（单个引导站）
  * @param fetchDomains 从种子站拉取域名列表（失败应返回空数组而不是抛异常）
  * @param probe 站点探测（生产实现是 `probeSite`，单测注入假实现）
  * @param fallbackToSeed 是否允许退用种子站本身
- * @param maxCandidates 每个种子站最多探测几个候选域名（防止刷新时串行 HEAD
+ * @param maxCandidates 最多探测几个候选域名（防止刷新时串行 HEAD
  *                      太多地址导致请求卡住；默认 4）
  */
-public func planSiteRefresh(seeds: Array<String>,
+public func planSiteRefresh(seed: String,
     fetchDomains: (String) -> Array<String>,
     probe: (String) -> ZlibProbe,
     fallbackToSeed: Bool,
@@ -286,40 +274,37 @@ public func planSiteRefresh(seeds: Array<String>,
     } else {
         maxCandidates
     }
-    for (seed in seeds) {
-        let domains = fetchDomains(seed)
-        var checked: Int64 = 0
-        for (domain in domains) {
-            if (checked >= limit) {
-                break
-            }
-            match (normalizeDomain(domain, seed: seed)) {
-                case Some(candidate) =>
-                    checked++
-                    let result = probe(candidate.url)
-                    if (isReachableStatus(result)) {
-                        return Some(candidate)
-                    }
-                case None => ()
-            }
+    let domains = fetchDomains(seed)
+    var checked: Int64 = 0
+    for (domain in domains) {
+        if (checked >= limit) {
+            break
         }
-        // 关键优化：fetchDomains 有返回，说明种子站本身**刚刚响应过**、一定可达，
-        // 因此允许兜底时可以直接用种子站，不必再对它做一次 HEAD（实测 HEAD 偶发
-        // 超过 5 秒超时，会让换站白等一轮）。只在拿不到域名时才对种子站做完整探测。
-        if (fallbackToSeed && !domains.isEmpty()) {
-            return Some(ZlibHost.of(seed))
+        match (normalizeDomain(domain, seed: seed)) {
+            case Some(candidate) =>
+                checked++
+                let result = probe(candidate.url)
+                if (isReachableStatus(result)) {
+                    return Some(candidate)
+                }
+            case None => ()
         }
-        let result = probe(seed)
-        if (result.isRedirect && !result.location.isEmpty()) {
-            return Some(ZlibHost.of(result.location))
-        }
-        if (fallbackToSeed && isReachableStatus(result)) {
-            return Some(ZlibHost.of(seed))
-        }
+    }
+    // 关键优化：fetchDomains 有返回，说明种子站本身**刚刚响应过**、一定可达，
+    // 因此允许兜底时可以直接用种子站，不必再对它做一次 HEAD（实测 HEAD 偶发
+    // 超过 5 秒超时，会让换站白等一轮）。只在拿不到域名时才对种子站做完整探测。
+    if (fallbackToSeed && !domains.isEmpty()) {
+        return Some(ZlibHost.of(seed))
+    }
+    let result = probe(seed)
+    if (result.isRedirect && !result.location.isEmpty()) {
+        return Some(ZlibHost.of(result.location))
+    }
+    if (fallbackToSeed && isReachableStatus(result)) {
+        return Some(ZlibHost.of(seed))
     }
     None
 }
-
 /** 200（正常）与 503（维护页）都视为站点可达。 */
 internal func isReachableStatus(result: ZlibProbe): Bool {
     result.status == 200 || result.status == 503

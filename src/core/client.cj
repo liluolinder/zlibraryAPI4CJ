@@ -45,7 +45,7 @@ import linderHttp.*
  *
  * ```cangjie
  * let client = ZlibClient.create(baseUrl: "https://your-zlib-domain",
- *     seeds: ["https://seed-domain"])
+ *     seed: "https://seed-domain")
  * try {
  *     let page = SearchApi.search(client, message: "Rust")
  * } finally {
@@ -127,13 +127,13 @@ public class ZlibClient <: Resource & ToString {
      * @param baseUrl 自定义站（**优先使用**；可带 `/eapi`，内部会规范化）
      * @param credential 初始凭证；默认游客
      * @param config 连接与重试配置
-     * @param seeds 种子站列表：自定义站失败时用它换新地址；空表示只做同址重试
+     * @param seed 种子站（单个引导站）：自定义站失败时向它问新地址；空表示只做同址重试
      */
     public static func create(baseUrl!: String = ZlibHost.DEFAULT_URL,
         credential!: ZlibCredential = ZlibCredential.anonymous(),
         config!: ZlibClientConfig = ZlibClientConfig(),
-        seeds!: Array<String> = Array<String>()): ZlibClient {
-        createWithSites(ZlibSites(customUrl: baseUrl, seeds: seeds), credential: credential,
+        seed!: String = ""): ZlibClient {
+        createWithSites(ZlibSites(customUrl: baseUrl, seed: seed), credential: credential,
             config: config)
     }
 
@@ -158,8 +158,8 @@ public class ZlibClient <: Resource & ToString {
         baseUrl!: String = ZlibHost.DEFAULT_URL,
         credential!: ZlibCredential = ZlibCredential.anonymous(),
         config!: ZlibClientConfig = ZlibClientConfig(),
-        seeds!: Array<String> = Array<String>()): ZlibClient {
-        ZlibClient(http, credential, config, ZlibSites(customUrl: baseUrl, seeds: seeds))
+        seed!: String = ""): ZlibClient {
+        ZlibClient(http, credential, config, ZlibSites(customUrl: baseUrl, seed: seed))
     }
 
     /** 用外部 `HttpClient` + 现成 `ZlibSites` 创建。 */
@@ -296,13 +296,13 @@ public class ZlibClient <: Resource & ToString {
      */
     public func refreshSite(force!: Bool = false): Bool {
         ensureOpen()
-        if (!sitesValue.hasSeeds()) {
+        if (!sitesValue.hasSeed()) {
             return false
         }
         if (!sitesValue.beginRefresh(force: force)) {
             return false
         }
-        let refreshed = planSiteRefresh(sitesValue.seedUrls(),
+        let refreshed = planSiteRefresh(sitesValue.seedUrl(),
             { seed => fetchSeedDomains(seed) },
             { url => probeSite(url, timeoutSeconds: 5) },
             sitesValue.fallbackToSeed())
@@ -589,7 +589,7 @@ public class ZlibClient <: Resource & ToString {
 
     /** 失败后尝试换站（无种子站或处于冷却窗口时静默跳过）。 */
     private func tryRefreshSite(): Unit {
-        if (!sitesValue.hasSeeds()) {
+        if (!sitesValue.hasSeed()) {
             return
         }
         let _ = refreshSite()

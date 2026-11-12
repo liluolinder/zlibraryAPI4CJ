@@ -155,7 +155,7 @@ zlibraryAPI4CJ (root: 只做 public import core.* 与 model.*)
 4. **客户端不可变，站点状态受控可变。** 凭证 / 配置 / 显式站点不能原地改，
    派生用 `withCredential` / `withBaseUrl` / `withHost` / `withSites`
    （共享同一个底层 `HttpClient` 与连接池）。
-   例外是 `ZlibSites`：它用 `Mutex` 保护「当前自定义站 + 种子站列表」，
+   例外是 `ZlibSites`：它用 `Mutex` 保护「当前自定义站 + 单个种子站」，
    自动换站会 `adopt` 新地址（2.1.0 需求：失败后覆盖自定义站并自动重试）。
    `withCredential` 派生的客户端**共享**同一份 `ZlibSites`，`withBaseUrl` 则派生独立副本。
    同一进程里同时需要游客态与登录态时，派生两个客户端即可干净隔离。
@@ -260,7 +260,7 @@ HTTP 层失败（DNS / TLS / 超时 / 池满）在 `execute` 里参与重试，
 
 换站细节：
 
-- 触发后调用 `refreshSite()`：用种子站列表依次 `GET /eapi/info/domains`
+- 触发后调用 `refreshSite()`：向**单个**种子站 `GET /eapi/info/domains`
   拿候选域名（也兼容种子站 3xx `Location`；若种子站刚返回过域名、说明它本身可达，
   允许直接兜底到种子站，避免 HEAD 偶发超时白等）；
 - 探测到第一个可用地址就 `sites.adopt(...)` **覆盖自定义站**，下一次尝试立即生效；

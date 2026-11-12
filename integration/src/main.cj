@@ -174,7 +174,7 @@ func checkAuthenticated(checks: Checks, email: String, password: String): Unit {
     config.totalTimeout = Duration.second * 180
     config.maxAttempts = 3
     config.downloadTimeout = Duration.second * 90
-    let guest = ZlibClient.create(baseUrl: DOMAIN, seeds: [DOMAIN], config: config)
+    let guest = ZlibClient.create(baseUrl: DOMAIN, seed: DOMAIN, config: config)
     try {
         // 1) 邮箱 + 密码登录（不打印密码，邮箱只打印掩码）
         logStep("login begin")
@@ -284,7 +284,7 @@ func checkAuthenticated(checks: Checks, email: String, password: String): Unit {
 func checkStartupCredential(checks: Checks, credential: ZlibCredential,
     expectedUserId: Int64): Unit {
     // A. create(credential:)：全新 HttpClient / 空 Cookie 存储
-    let byCreate = ZlibClient.create(baseUrl: DOMAIN, credential: credential, seeds: [DOMAIN])
+    let byCreate = ZlibClient.create(baseUrl: DOMAIN, credential: credential, seed: DOMAIN)
     try {
         let first = UserApi.profile(byCreate)
         checks.check("启动凭证·首次 profile 生效", first.id == expectedUserId,
@@ -552,7 +552,7 @@ func checkProbe(checks: Checks): Unit {
 // ---------------------------------------------------------------------------
 
 func checkSearch(checks: Checks): Unit {
-    let client = ZlibClient.create(baseUrl: DOMAIN, seeds: [DOMAIN])
+    let client = ZlibClient.create(baseUrl: DOMAIN, seed: DOMAIN)
     try {
         let page = SearchApi.search(client, "rust", limit: 5)
         checks.check("search 非空", page.size() > 0, detail: "size=${page.size()}")
@@ -760,7 +760,7 @@ func checkAutoSwitch(checks: Checks): Unit {
     config.totalTimeout = Duration.second * 12
     config.maxAttempts = 2
     // 故意把自定义站设成 DNS 必失败域名，种子站设成实测可用镜像
-    let sites = ZlibSites(customUrl: DEAD_DOMAIN, seeds: [DOMAIN],
+    let sites = ZlibSites(customUrl: DEAD_DOMAIN, seed: DOMAIN,
         refreshInterval: Duration.second * 0)
     let client = ZlibClient.createWithSites(sites, config: config)
     try {

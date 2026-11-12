@@ -412,18 +412,20 @@ class ZlibSitesTest {
         let sites = ZlibSites(customUrl: "https://a.com/eapi/")
         @Expect(sites.customUrl(), "https://a.com")
         @Expect(sites.current().url, "https://a.com")
-        @Expect(sites.hasSeeds(), false)
+        @Expect(sites.hasSeed(), false)
+        @Expect(sites.seedUrl(), "")
         @Expect(sites.fallbackToSeed(), true)
     }
 
     @TestCase
-    func testSeedsNormalized(): Unit {
-        let sites = ZlibSites(customUrl: "https://a.com",
-            seeds: ["https://seed.com/eapi", "  ", "https://seed2.com/"])
-        @Expect(sites.seedUrls().size, 2)
-        @Expect(sites.seedUrls()[0], "https://seed.com")
-        @Expect(sites.seedUrls()[1], "https://seed2.com")
-        @Expect(sites.hasSeeds(), true)
+    func testSeedNormalized(): Unit {
+        let sites = ZlibSites(customUrl: "https://a.com", seed: "https://seed.com/eapi/")
+        @Expect(sites.seedUrl(), "https://seed.com")
+        @Expect(sites.hasSeed(), true)
+        // 空种子站 = 关闭自动换站
+        let empty = ZlibSites(customUrl: "https://a.com", seed: "   ")
+        @Expect(empty.hasSeed(), false)
+        @Expect(empty.seedUrl(), "")
     }
 
     @TestCase
@@ -440,7 +442,7 @@ class ZlibSitesTest {
 
     @TestCase
     func testRefreshCooldown(): Unit {
-        let sites = ZlibSites(customUrl: "https://a.com", seeds: ["https://seed.com"])
+        let sites = ZlibSites(customUrl: "https://a.com", seed: "https://seed.com")
         @Expect(sites.beginRefresh(), true) // 首次允许
         @Expect(sites.beginRefresh(), false) // 冷却窗口内拒绝，避免打爆种子站
         @Expect(sites.beginRefresh(force: true), true) // 手动强制
@@ -450,22 +452,22 @@ class ZlibSitesTest {
 
     @TestCase
     func testDerivationIsIndependent(): Unit {
-        let sites = ZlibSites(customUrl: "https://a.com", seeds: ["https://seed.com"])
+        let sites = ZlibSites(customUrl: "https://a.com", seed: "https://seed.com")
         let derived = sites.withCustomUrl("https://b.com")
         @Expect(sites.customUrl(), "https://a.com")
         @Expect(derived.customUrl(), "https://b.com")
-        @Expect(derived.seedUrls()[0], "https://seed.com")
-        let seeded = sites.withSeeds(["https://s2.com"])
-        @Expect(seeded.seedUrls()[0], "https://s2.com")
-        @Expect(sites.seedUrls()[0], "https://seed.com")
+        @Expect(derived.seedUrl(), "https://seed.com")
+        let seeded = sites.withSeed("https://s2.com")
+        @Expect(seeded.seedUrl(), "https://s2.com")
+        @Expect(sites.seedUrl(), "https://seed.com")
     }
 
     @TestCase
     func testSnapshot(): Unit {
-        let sites = ZlibSites(customUrl: "https://a.com", seeds: ["https://seed.com"],
+        let sites = ZlibSites(customUrl: "https://a.com", seed: "https://seed.com",
             refreshInterval: Duration.second * 5, fallbackToSeed: false)
         @Expect(sites.snapshot().currentUrl, "https://a.com")
-        @Expect(sites.snapshot().seedUrls.size, 1)
+        @Expect(sites.snapshot().seedUrl, "https://seed.com")
         @Expect(sites.snapshot().refreshIntervalSeconds, 5)
         @Expect(sites.snapshot().fallbackToSeed, false)
         @Expect(sites.toString().contains("a.com"), true)
@@ -485,7 +487,7 @@ class PlanSiteRefreshTest {
             }, "")
         }
         let fetch: (String) -> Array<String> = { seed => ["bad.com", "good.com"] }
-        let result = planSiteRefresh(["https://seed.com"], fetch, probe, true)
+        let result = planSiteRefresh("https://seed.com", fetch, probe, true)
         @Expect(result.isSome(), true)
         @Expect(result.getOrThrow().url, "https://good.com")
     }
@@ -494,9 +496,9 @@ class PlanSiteRefreshTest {
     func testFallsBackToSeedItself(): Unit {
         let probe: (String) -> ZlibProbe = { url => ZlibProbe(url, UInt16(200), "") }
         let fetch: (String) -> Array<String> = { seed => Array<String>() }
-        @Expect(planSiteRefresh(["https://seed.com"], fetch, probe, true).isSome(), true)
+        @Expect(planSiteRefresh("https://seed.com", fetch, probe, true).isSome(), true)
         // 关闭兜底后，拿不到域名就返回 None
-        @Expect(planSiteRefresh(["https://seed.com"], fetch, probe, false).isNone(), true)
+        @Expect(planSiteRefresh("https://seed.com", fetch, probe, false).isNone(), true)
     }
 
     @TestCase
@@ -505,11 +507,11 @@ class PlanSiteRefreshTest {
         // 也应当允许直接兜底到种子站，避免换站白等一轮。
         let probe: (String) -> ZlibProbe = { url => ZlibProbe(url, UInt16(0), "") }
         let fetch: (String) -> Array<String> = { seed => ["blocked1.com", "blocked2.com"] }
-        let result = planSiteRefresh(["https://seed.com"], fetch, probe, true)
+        let result = planSiteRefresh("https://seed.com", fetch, probe, true)
         @Expect(result.isSome(), true)
         @Expect(result.getOrThrow().url, "https://seed.com")
         // 关闭兜底时仍然返回 None
-        @Expect(planSiteRefresh(["https://seed.com"], fetch, probe, false).isNone(), true)
+        @Expect(planSiteRefresh("https://seed.com", fetch, probe, false).isNone(), true)
     }
 
     @TestCase
@@ -518,28 +520,22 @@ class PlanSiteRefreshTest {
             ZlibProbe(url, UInt16(302), "https://moved.example")
         }
         let fetch: (String) -> Array<String> = { seed => Array<String>() }
-        let result = planSiteRefresh(["https://seed.com"], fetch, probe, false)
+        let result = planSiteRefresh("https://seed.com", fetch, probe, false)
         @Expect(result.getOrThrow().url, "https://moved.example")
     }
 
     @TestCase
-    func testTriesSeedsInOrder(): Unit {
-        let probe: (String) -> ZlibProbe = { url =>
-            ZlibProbe(url, if (url == "https://good.com") {
-                UInt16(200)
-            } else {
-                UInt16(0)
-            }, "")
-        }
+    func testFetchUsesGivenSeed(): Unit {
+        // 种子站只有一个：fetchDomains 收到的就是它（靠域名分支证明）
+        let probe: (String) -> ZlibProbe = { url => ZlibProbe(url, UInt16(200), "") }
         let fetch: (String) -> Array<String> = { seed =>
-            if (seed == "https://seed2.com") {
+            if (seed == "https://onlyseed.com") {
                 ["good.com"]
             } else {
                 ["bad.com"]
             }
         }
-        let result = planSiteRefresh(["https://seed1.com", "https://seed2.com"], fetch, probe,
-            false)
+        let result = planSiteRefresh("https://onlyseed.com", fetch, probe, false)
         @Expect(result.getOrThrow().url, "https://good.com")
     }
 
@@ -547,7 +543,7 @@ class PlanSiteRefreshTest {
     func testAllFail(): Unit {
         let probe: (String) -> ZlibProbe = { url => ZlibProbe(url, UInt16(0), "") }
         let fetch: (String) -> Array<String> = { seed => Array<String>() }
-        @Expect(planSiteRefresh(["https://s1.com", "https://s2.com"], fetch, probe, true).isNone(),
+        @Expect(planSiteRefresh("https://s1.com", fetch, probe, true).isNone(),
             true)
     }
 
@@ -564,9 +560,9 @@ class PlanSiteRefreshTest {
         let fetch: (String) -> Array<String> = { seed =>
             ["c1.com", "c2.com", "c3.com", "c4.com", "c5.com", "good6.com"]
         }
-        @Expect(planSiteRefresh(["https://seed.com"], fetch, probe, false).isNone(), true)
+        @Expect(planSiteRefresh("https://seed.com", fetch, probe, false).isNone(), true)
         // 放宽上限后命中
-        @Expect(planSiteRefresh(["https://seed.com"], fetch, probe, false,
+        @Expect(planSiteRefresh("https://seed.com", fetch, probe, false,
             maxCandidates: 6).isSome(), true)
     }
 }
@@ -660,11 +656,11 @@ class SwitchSiteDecisionTest {
 @Test
 class ClientSitesTest {
     @TestCase
-    func testCreateWithSeeds(): Unit {
-        let client = ZlibClient.create(baseUrl: "https://a.com", seeds: ["https://seed.com"])
+    func testCreateWithSeed(): Unit {
+        let client = ZlibClient.create(baseUrl: "https://a.com", seed: "https://seed.com")
         @Expect(client.baseUrl, "https://a.com")
         @Expect(client.eapiUrl, "https://a.com/eapi")
-        @Expect(client.sites.seedUrls().size, 1)
+        @Expect(client.sites.seedUrl(), "https://seed.com")
         @Expect(client.sites.snapshot().currentUrl, "https://a.com")
         client.close()
     }
@@ -690,11 +686,11 @@ class ClientSitesTest {
 
     @TestCase
     func testWithBaseUrlDoesNotMutateOriginal(): Unit {
-        let client = ZlibClient.create(baseUrl: "https://a.com", seeds: ["https://seed.com"])
+        let client = ZlibClient.create(baseUrl: "https://a.com", seed: "https://seed.com")
         let moved = client.withBaseUrl("https://b.com")
         @Expect(client.baseUrl, "https://a.com")
         @Expect(moved.baseUrl, "https://b.com")
-        @Expect(moved.sites.seedUrls().size, 1)
+        @Expect(moved.sites.seedUrl(), "https://seed.com")
         client.close()
     }
 }

@@ -1086,11 +1086,11 @@ func doc15_7_rawInfo(client: ZlibClient): String {
 // ===========================================================================
 func doc3_1_seeds(): Unit {
     let resilient = ZlibClient.create(baseUrl: "https://your-zlib-domain",
-        seeds: ["https://seed1.example", "https://seed2.example"])
+        seed: "https://seed1.example")
     resilient.close()
 
     let sites = ZlibSites(customUrl: "https://your-zlib-domain",
-        seeds: ["https://seed1.example"], refreshInterval: Duration.second * 30)
+        seed: "https://seed1.example", refreshInterval: Duration.second * 30)
     let sharedSites = ZlibClient.createWithSites(sites)
     sharedSites.close()
 }
@@ -1109,20 +1109,20 @@ func doc3_9_siteEntry(client: ZlibClient): Unit {
 
 func doc5_2_sites(): Unit {
     let sites = ZlibSites(customUrl: "https://your-zlib-domain/eapi/",
-        seeds: ["https://seed1.example", "https://seed2.example"],
+        seed: "https://seed1.example",
         refreshInterval: Duration.second * 30,
         fallbackToSeed: true)
     println(sites.current().url)
     println(sites.customUrl())
-    println(sites.seedUrls().size)
-    println(sites.hasSeeds())
+    println(if (sites.hasSeed()) { 1 } else { 0 })
+    println(sites.hasSeed())
     println(sites.fallbackToSeed())
     println(sites.refreshInterval())
     sites.setCustomUrl("https://another-mirror.example")
     println(sites.current().url)
     let moved = sites.withCustomUrl("https://third-mirror.example")
-    let reseeded = sites.withSeeds(["https://seed3.example"])
-    println("${moved.current().url} / ${reseeded.seedUrls()[0]}")
+    let reseeded = sites.withSeed("https://seed3.example"])
+    println("${moved.current().url} / ${reseeded.seedUrl()}")
 }
 
 func doc5_3_snapshot(client: ZlibClient): Unit {
@@ -1131,12 +1131,12 @@ func doc5_3_snapshot(client: ZlibClient): Unit {
     println(snapshot.refreshCount)
     println(snapshot.lastRefreshAtMillis)
     println(snapshot.refreshIntervalSeconds)
-    println(snapshot.seedUrls.size)
+    println(if (snapshot.seedUrl.isEmpty()) { 0 } else { 1 })
     println(snapshot)
 }
 
 func doc5_3_beginRefresh(): Unit {
-    let sites = ZlibSites(customUrl: "https://a.example", seeds: ["https://seed.example"])
+    let sites = ZlibSites(customUrl: "https://a.example", seed: "https://seed.example")
     println(sites.beginRefresh())
     println(sites.beginRefresh())
     println(sites.beginRefresh(force: true))
@@ -1145,7 +1145,7 @@ func doc5_3_beginRefresh(): Unit {
 }
 
 func doc5_6_plan(): Unit {
-    let result = planSiteRefresh(["https://seed.example"],
+    let result = planSiteRefresh("https://seed.example",
         { seed => ["a.example", "b.example"] },
         { url => probeSite(url, timeoutSeconds: 3) },
         true,
@@ -1169,7 +1169,7 @@ func doc5_7_retryConfig(): Unit {
     let config2 = ZlibClientConfig()
     config2.maxAttempts = 5
     let patient = ZlibClient.create(baseUrl: "https://your-zlib-domain",
-        seeds: ["https://seed1.example"], config: config2)
+        seed: "https://seed1.example", config: config2)
     patient.close()
 }
 
@@ -1178,12 +1178,12 @@ func doc5_9_persist(client: ZlibClient): ZlibClient {
     let savedCookie = client.credential.toCookieHeader()
     ZlibClient.create(baseUrl: savedSite,
         credential: ZlibCredential.fromCookieString(savedCookie),
-        seeds: ["https://seed1.example"])
+        seed: "https://seed1.example")
 }
 
-func doc15_3_searchWithRecovery(domain: String, seeds: Array<String>,
+func doc15_3_searchWithRecovery(domain: String, seed: String,
     message: String): Int64 {
-    let client = ZlibClient.create(baseUrl: domain, seeds: seeds)
+    let client = ZlibClient.create(baseUrl: domain, seed: seed)
     try {
         // 不需要手写重试：execute 层已做「失败 → 换站 → 重试」
         let size = SearchApi.search(client, message).size()
