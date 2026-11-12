@@ -1145,11 +1145,9 @@ func doc5_3_beginRefresh(): Unit {
 }
 
 func doc5_6_plan(): Unit {
-    let result = planSiteRefresh("https://seed.example",
-        { seed => ["a.example", "b.example"] },
+    let result = planSiteRefresh("https://old.example", "https://seed.example",
         { url => probeSite(url, timeoutSeconds: 3) },
-        true,
-        maxCandidates: 4)
+        true)
     match (result) {
         case Some(host) => println(host.url)
         case None => println("换站失败")

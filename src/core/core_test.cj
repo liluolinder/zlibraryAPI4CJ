@@ -477,96 +477,60 @@ class ZlibSitesTest {
 @Test
 class PlanSiteRefreshTest {
     @TestCase
-    func testUsesSeedDomains(): Unit {
-        // 种子站返回两个域名，只有第二个可达 → 选中第二个
+    func testCurrentSiteRedirectWins(): Unit {
+        // 当前站失败但是跳转入口 → 直接用它的 Location
         let probe: (String) -> ZlibProbe = { url =>
-            ZlibProbe(url, if (url == "https://good.com") {
-                UInt16(200)
+            if (url == "https://old.com") {
+                ZlibProbe(url, UInt16(302), "https://new.com")
             } else {
-                UInt16(0)
-            }, "")
+                ZlibProbe(url, UInt16(0), "")
+            }
         }
-        let fetch: (String) -> Array<String> = { seed => ["bad.com", "good.com"] }
-        let result = planSiteRefresh("https://seed.com", fetch, probe, true)
-        @Expect(result.isSome(), true)
-        @Expect(result.getOrThrow().url, "https://good.com")
+        let result = planSiteRefresh("https://old.com", "https://seed.com", probe, true)
+        @Expect(result.getOrThrow().url, "https://new.com")
     }
 
     @TestCase
-    func testFallsBackToSeedItself(): Unit {
-        let probe: (String) -> ZlibProbe = { url => ZlibProbe(url, UInt16(200), "") }
-        let fetch: (String) -> Array<String> = { seed => Array<String>() }
-        @Expect(planSiteRefresh("https://seed.com", fetch, probe, true).isSome(), true)
-        // 关闭兜底后，拿不到域名就返回 None
-        @Expect(planSiteRefresh("https://seed.com", fetch, probe, false).isNone(), true)
-    }
-
-    @TestCase
-    func testSeedRespondedMeansReachable(): Unit {
-        // 种子站刚返回过域名，即使对它自己 HEAD 探测失败（实际偶发超时），
-        // 也应当允许直接兜底到种子站，避免换站白等一轮。
-        let probe: (String) -> ZlibProbe = { url => ZlibProbe(url, UInt16(0), "") }
-        let fetch: (String) -> Array<String> = { seed => ["blocked1.com", "blocked2.com"] }
-        let result = planSiteRefresh("https://seed.com", fetch, probe, true)
-        @Expect(result.isSome(), true)
-        @Expect(result.getOrThrow().url, "https://seed.com")
-        // 关闭兜底时仍然返回 None
-        @Expect(planSiteRefresh("https://seed.com", fetch, probe, false).isNone(), true)
-    }
-
-    @TestCase
-    func testSeedRedirect(): Unit {
+    func testFallsBackToSeedRedirect(): Unit {
+        // 当前站不是跳转（真失败）→ 退回种子站拿 Location
         let probe: (String) -> ZlibProbe = { url =>
-            ZlibProbe(url, UInt16(302), "https://moved.example")
+            if (url == "https://seed.com") {
+                ZlibProbe(url, UInt16(301), "https://moved.example")
+            } else {
+                ZlibProbe(url, UInt16(0), "")
+            }
         }
-        let fetch: (String) -> Array<String> = { seed => Array<String>() }
-        let result = planSiteRefresh("https://seed.com", fetch, probe, false)
+        let result = planSiteRefresh("https://dead.com", "https://seed.com", probe, true)
         @Expect(result.getOrThrow().url, "https://moved.example")
     }
 
     @TestCase
-    func testFetchUsesGivenSeed(): Unit {
-        // 种子站只有一个：fetchDomains 收到的就是它（靠域名分支证明）
-        let probe: (String) -> ZlibProbe = { url => ZlibProbe(url, UInt16(200), "") }
-        let fetch: (String) -> Array<String> = { seed =>
-            if (seed == "https://onlyseed.com") {
-                ["good.com"]
+    func testUsesSeedWhenReachableWithoutRedirect(): Unit {
+        // 种子站可达但没有跳转：允许兜底就直接用它，否则失败
+        let probe: (String) -> ZlibProbe = { url =>
+            if (url == "https://seed.com") {
+                ZlibProbe(url, UInt16(200), "")
             } else {
-                ["bad.com"]
+                ZlibProbe(url, UInt16(0), "")
             }
         }
-        let result = planSiteRefresh("https://onlyseed.com", fetch, probe, false)
-        @Expect(result.getOrThrow().url, "https://good.com")
+        @Expect(planSiteRefresh("https://dead.com", "https://seed.com", probe, true).isSome(), true)
+        @Expect(planSiteRefresh("https://dead.com", "https://seed.com", probe, false).isNone(), true)
     }
 
     @TestCase
-    func testAllFail(): Unit {
+    func testBothFail(): Unit {
+        // 当前站和种子站都失败 → None（调用方抛错）
         let probe: (String) -> ZlibProbe = { url => ZlibProbe(url, UInt16(0), "") }
-        let fetch: (String) -> Array<String> = { seed => Array<String>() }
-        @Expect(planSiteRefresh("https://s1.com", fetch, probe, true).isNone(),
-            true)
+        @Expect(planSiteRefresh("https://dead.com", "https://seed.com", probe, true).isNone(), true)
     }
 
     @TestCase
-    func testCandidateCap(): Unit {
-        // 6 个候选里只有最后一个可达，但默认只探测前 4 个 → 不命中
-        let probe: (String) -> ZlibProbe = { url =>
-            ZlibProbe(url, if (url == "https://good6.com") {
-                UInt16(200)
-            } else {
-                UInt16(0)
-            }, "")
-        }
-        let fetch: (String) -> Array<String> = { seed =>
-            ["c1.com", "c2.com", "c3.com", "c4.com", "c5.com", "good6.com"]
-        }
-        @Expect(planSiteRefresh("https://seed.com", fetch, probe, false).isNone(), true)
-        // 放宽上限后命中
-        @Expect(planSiteRefresh("https://seed.com", fetch, probe, false,
-            maxCandidates: 6).isSome(), true)
+    func testNoSeedConfigured(): Unit {
+        let probe: (String) -> ZlibProbe = { url => ZlibProbe(url, UInt16(0), "") }
+        @Expect(planSiteRefresh("https://dead.com", "", probe, true).isNone(), true)
     }
 }
-
 @Test
 class ExtractDomainListTest {
     @TestCase

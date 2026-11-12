@@ -302,8 +302,8 @@ public class ZlibClient <: Resource & ToString {
         if (!sitesValue.beginRefresh(force: force)) {
             return false
         }
-        let refreshed = planSiteRefresh(sitesValue.seedUrl(),
-            { seed => fetchSeedDomains(seed) },
+        // 顺序：当前站 3xx → 种子站 3xx → （可选）种子站本身；都失败返回 None
+        let refreshed = planSiteRefresh(sitesValue.current().url, sitesValue.seedUrl(),
             { url => probeSite(url, timeoutSeconds: 5) },
             sitesValue.fallbackToSeed())
         match (refreshed) {

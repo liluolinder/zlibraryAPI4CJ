@@ -250,61 +250,46 @@ public class ZlibSiteSnapshot <: ToString {
 /**
  * 计算「该换到哪个站」。
  *
- * 种子站是**单个引导站**，依次尝试：
- * 1. 向它查询域名列表（`fetchDomains`），逐个探测，返回第一个可用的；
- * 2. 它本身 3xx → 用响应头 `Location`（镜像入口最常见的换站方式）；
- * 3. 允许兜底时，它本身可达（200/503）→ 直接用它。
+ * 与产品约定一致，按顺序：
+ * 1. 当前站请求失败后，先探测**当前站本身**是不是 3xx 跳转
+ *    （客户端默认跟随重定向，看到的往往不是 302 而是跳转后的 HTML，
+ *    所以这里要用不跟随重定向的探测）；是 → 用响应头 `Location` 作为新站；
+ * 2. 当前站不是跳转（真失败）→ 退回**种子站**，同样探测它的 3xx `Location`；
+ * 3. 种子站也失败 → 返回 `None`，由调用方抛错。
  *
- * 全部失败返回 `None`（由调用方决定是否报错，不在这里抛异常）。
- *
- * @param seed 种子站地址（单个引导站）
- * @param fetchDomains 从种子站拉取域名列表（失败应返回空数组而不是抛异常）
- * @param probe 站点探测（生产实现是 `probeSite`，单测注入假实现）
- * @param fallbackToSeed 是否允许退用种子站本身
- * @param maxCandidates 最多探测几个候选域名（防止刷新时串行 HEAD
- *                      太多地址导致请求卡住；默认 4）
+ * @param currentUrl 当前站（请求失败的那个）
+ * @param seed 种子站（空 = 未配置）
+ * @param probe 站点探测（不跟随重定向；生产实现是 `probeSite`）
+ * @param fallbackToSeed 种子站可达但没有跳转时，是否直接用种子站本身
  */
-public func planSiteRefresh(seed: String,
-    fetchDomains: (String) -> Array<String>,
+public func planSiteRefresh(currentUrl: String, seed: String,
     probe: (String) -> ZlibProbe,
-    fallbackToSeed: Bool,
-    maxCandidates!: Int64 = 4): ?ZlibHost {
-    let limit = if (maxCandidates < 1) {
-        1
-    } else {
-        maxCandidates
+    fallbackToSeed: Bool): ?ZlibHost {
+    // 1) 当前站是跳转入口 → 用它的 Location
+    let currentProbe = probe(currentUrl)
+    if (currentProbe.isRedirect && !currentProbe.location.isEmpty()) {
+        return Some(ZlibHost.of(currentProbe.location))
     }
-    let domains = fetchDomains(seed)
-    var checked: Int64 = 0
-    for (domain in domains) {
-        if (checked >= limit) {
-            break
-        }
-        match (normalizeDomain(domain, seed: seed)) {
-            case Some(candidate) =>
-                checked++
-                let result = probe(candidate.url)
-                if (isReachableStatus(result)) {
-                    return Some(candidate)
-                }
-            case None => ()
-        }
+    // 2) 当前站不是跳转 → 退到种子站
+    let seedText = seed.trimAscii()
+    if (seedText.isEmpty()) {
+        return None
     }
-    // 关键优化：fetchDomains 有返回，说明种子站本身**刚刚响应过**、一定可达，
-    // 因此允许兜底时可以直接用种子站，不必再对它做一次 HEAD（实测 HEAD 偶发
-    // 超过 5 秒超时，会让换站白等一轮）。只在拿不到域名时才对种子站做完整探测。
-    if (fallbackToSeed && !domains.isEmpty()) {
-        return Some(ZlibHost.of(seed))
+    let seedHost = match (tryHostOf(seedText)) {
+        case Some(value) => value
+        case None => return None
     }
-    let result = probe(seed)
-    if (result.isRedirect && !result.location.isEmpty()) {
-        return Some(ZlibHost.of(result.location))
+    let seedProbe = probe(seedHost.url)
+    if (seedProbe.isRedirect && !seedProbe.location.isEmpty()) {
+        return Some(ZlibHost.of(seedProbe.location))
     }
-    if (fallbackToSeed && isReachableStatus(result)) {
-        return Some(ZlibHost.of(seed))
+    // 3) 种子站可达但没有跳转：允许兜底就直接用它，否则失败（由调用方抛错）
+    if (fallbackToSeed && isReachableStatus(seedProbe)) {
+        return Some(seedHost)
     }
     None
 }
+
 /** 200（正常）与 503（维护页）都视为站点可达。 */
 internal func isReachableStatus(result: ZlibProbe): Bool {
     result.status == 200 || result.status == 503
