@@ -171,6 +171,51 @@ main(): Int64 {
 - 手动急救：`client.refreshSite(force: true)`；手动切站：`client.setCustomSite(url)`。
 - 详细机制见 [`API_USAGE.md`](API_USAGE.md) 第 5 章。
 
+### 如何决定「是否官方镜像」
+
+> 结论先说：**本库不判断、也不需要判断**哪个域名是官方镜像；它只认两个单值——
+> **当前自定义站**（`baseUrl`）与**种子站**（`seed`）。「官方/自定义」是**前端自己的分类**，
+> 前端把分类结果翻译成 `seed` 是否为空传进来。
+
+#### 为什么把判定留在前端
+
+- **官方域名列表会变，且各产品可能不同**：Z-Library 官方域会被封、镜像会轮换，
+  「官方」是一种产品约定（例如 seline_read 内置 3 个官方地址），不该由底层的 API 库固化；
+- **后端只需要一种能力**：`Seed` 有值 ⇒ 失败时允许换站；`seed` 为空 ⇒ 只做同址重试、失败就报错。
+  「是不是官方」在行为上恰好等价于「该不该带种子站」，所以一个空串就能表达完整语义；
+- **避免策略矩阵**：如果库里加 `isOfficial` 开关，就要维护「官方 × 自定义 × 各种回退开关」
+  的组合；现在只有「有无 seed」这一维，实现和排查都简单。
+
+#### 判定规则（前端侧，供消费方参考）
+
+```
+规范化(url) = trim → 补 https:// → 去尾部 / → 去误加的 /eapi
+是官方镜像 ⇔ 规范化(url) ∈ 官方地址列表（精确匹配，不猜、不做后缀匹配）
+```
+
+判定结果只影响一件事：**建客户端时 `seed` 传什么**。
+
+| 前端选择 | 传给本库 | 本库行为 |
+| --- | --- | --- |
+| 官方地址（A/B/C） | `baseUrl = A`，`seed = ""` | 请求失败只做同址重试，最终抛 `ZlibError`（前端展示「网络链接失败」），**不会**自动换站 |
+| 自定义地址（D/E/F） | `baseUrl = F`，`seed = G`（种子站） | 失败时 `refreshSite()` 依次探测：F 自身 3xx → G 的 3xx → G 本身；探到新域名 Z 后 `adopt(Z)` 覆盖 F，重试请求 |
+
+对应代码路径（本库）：
+
+- `ZlibSites(customUrl: String, seed: String)`：两个参数都是**单值**，没有数组；
+- `ZlibClient.refreshSite()`：`if (!sitesValue.hasSeed()) { return false }` —— 没有种子站就不换站；
+- `planSiteRefresh(currentUrl, seed, probe, fallbackToSeed)`：`seed` 为空直接返回 `None`（本轮不换站）；
+- 换站成功后 `sites.adopt(host)` 覆盖自定义站；调用方（前端）再把 `currentSiteUrl()` 写回自己的配置。
+
+```cangjie
+// 前端伪代码：官方 → 不带种子站；自定义 → 带种子站
+let official = normalized in myOfficialList          // 前端自己维护的 3 个官方地址
+let seed = if (official) { "" } else { mySeedSite }  // 空串 = 禁止自动换站
+let client = ZlibClient.create(baseUrl: normalized, seed: seed)
+```
+
+> 消费方若把「官方地址」当自定义站传（比如 `seed` 也给了种子站），本库会照常执行换站——
+> **回退与否完全由调用方通过 `seed` 决定**，本库不做「这是官方所以不许回退」的二次判断。
 ### 登录
 
 ```cangjie

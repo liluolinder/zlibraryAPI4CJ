@@ -508,6 +508,17 @@ func authStage(): String {
 // 站点探测
 // ---------------------------------------------------------------------------
 
+/** 探测单个站点：3xx 用 Location，200/503 用原地址，其余返回 None。 */
+func siteProbeTarget(url: String): ?String {
+    let probe = probeSite(url, timeoutSeconds: 5)
+    if (probe.isRedirect && !probe.location.isEmpty()) {
+        return Some(probe.location)
+    }
+    if (probe.reachable) {
+        return Some(url)
+    }
+    None
+}
 func checkProbe(checks: Checks): Unit {
     var probe = probeSite(DOMAIN, timeoutSeconds: 15)
     // 网络偶发抖动：失败时重试两次再判定
@@ -531,17 +542,17 @@ func checkProbe(checks: Checks): Unit {
         attempt++
     }
     checks.check("checkAccess", access, detail: "url=${probe.url} attempts=${attempt}")
-    let resolved = resolveZlibHost(candidates: [DOMAIN])
-    var resolvedHost = resolved
+    // resolveZlibHost 已移除：改为单站点 probeSite 探测（3xx 时 Location 即真实入口）
+    var resolvedHost = siteProbeTarget(DOMAIN)
     var resolveAttempt: Int64 = 0
     while (resolvedHost.isNone() && resolveAttempt < 2) {
         sleep(Duration.second * 2)
-        resolvedHost = resolveZlibHost(candidates: [DOMAIN])
+        resolvedHost = siteProbeTarget(DOMAIN)
         resolveAttempt++
     }
-    checks.check("resolveZlibHost 命中", resolvedHost.isSome(),
+    checks.check("probeSite 命中", resolvedHost.isSome(),
         detail: if (resolvedHost.isSome()) {
-            resolvedHost.getOrThrow().url
+            resolvedHost.getOrThrow()
         } else {
             "None"
         })

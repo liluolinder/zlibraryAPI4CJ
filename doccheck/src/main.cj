@@ -46,7 +46,7 @@ func doc2_minimal(): Int64 {
 // ===========================================================================
 func doc3_1(): Unit {
     // 1) 默认配置 + 游客态
-    let anon = ZlibClient.create()
+    let anon = ZlibClient.create(baseUrl: "https://your-zlib-domain")
 
     // 2) 指定站点
     let client = ZlibClient.create(baseUrl: "https://your-zlib-domain")
@@ -248,8 +248,7 @@ func doc5_1(): Unit {
     println(host.origin)  // https://example.com/
     println(host.isValid) // true
 
-    println(ZlibHost.DEFAULT_URL)
-    println(ZlibHost.MIRRORS.size)
+    println(ZlibHost.of("https://your-zlib-domain").url)
 }
 
 // ===========================================================================
@@ -267,10 +266,14 @@ func doc5_2(): Unit {
     println(checkAccess("https://your-zlib-domain"))
     println(canAccessZlib(baseUrl: "https://your-zlib-domain", autoRedirect: true))
 
-    // 从候选列表里找一个可用的
-    match (resolveZlibHost()) {
-        case Some(host) => println("可用：${host.url}")
-        case None => println("候选镜像全部不可达，请手动指定 baseUrl")
+    // 单站点探测：3xx 时 Location 就是真实入口
+    let single = probeSite("https://z-library.sk")
+    if (single.isRedirect && !single.location.isEmpty()) {
+        println("可用：${single.location}")
+    } else if (single.reachable) {
+        println("可用：https://z-library.sk")
+    } else {
+        println("站点不可达，请手动指定 baseUrl")
     }
 }
 
@@ -1002,13 +1005,12 @@ func doc15_3_searchWithRetry(domain: String, message: String): Int64 {
             println("第一次失败：${err.detail}")
         }
 
-        // 重新探测可用站点（只返回结果，不改全局状态）
-        match (resolveZlibHost()) {
-            case Some(host) =>
-                let moved = client.withBaseUrl(host.url)
-                return SearchApi.search(moved, message).size()
-            case None => return 0
+        // 重新探测当前站点（只返回结果，不改全局状态）；可达就再试一次
+        let again = probeSite(client.baseUrl)
+        if (again.reachable) {
+            return SearchApi.search(client, message).size()
         }
+        return 0
     } finally {
         client.close()
     }
@@ -1121,7 +1123,7 @@ func doc5_2_sites(): Unit {
     sites.setCustomUrl("https://another-mirror.example")
     println(sites.current().url)
     let moved = sites.withCustomUrl("https://third-mirror.example")
-    let reseeded = sites.withSeed("https://seed3.example"])
+    let reseeded = sites.withSeed("https://seed3.example")
     println("${moved.current().url} / ${reseeded.seedUrl()}")
 }
 

@@ -384,15 +384,6 @@ public class ZlibClient <: Resource & ToString {
             path: path)
     }
 
-    /**
-     * 拼出 papi 地址（`<当前站点>/papi<path>`）。
-     *
-     * papi 是网站前端自己用的内部 JSON 接口（书单等少数功能只有它有），
-     * 与 eapi 共用请求头、连接池、Cookie 与换站/重试策略，只是路径前缀不同。
-     */
-    public func papiUrl(path: String): String {
-        hostPapiUrl(sitesValue.current(), path)
-    }
 
     /** GET papi：返回原始 JSON 根对象（自动重试 + 换站 + 带凭证）。 */
     public func getPapiJson(path: String,
