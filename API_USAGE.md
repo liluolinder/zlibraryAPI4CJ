@@ -173,22 +173,22 @@ let client = ZlibClient.create(baseUrl: "https://your-zlib-domain")
 
 // 3) 自定义站 + 种子站：自定义站失败时自动向种子站换新地址并重试
 let resilient = ZlibClient.create(baseUrl: "https://your-zlib-domain",
-    seeds: ["https://seed1.example", "https://seed2.example"])
+    seed: "https://seed1.example")
 
 // 4) 指定站点 + 已有凭证
 let credential = ZlibCredential.fromCookieString(
     "remix_userid=123456; remix_userkey=xxxxxxxx")
 let authed = ZlibClient.create(baseUrl: "https://your-zlib-domain",
-    credential: credential, seeds: ["https://seed1.example"])
+    credential: credential, seed: "https://seed1.example")
 
 // 5) 复用外部 HttpClient（已有统一连接池 / 代理 / 日志策略时）
 let http = HttpClientBuilder().userAgent("my-agent").build()
 let shared = ZlibClient.fromHttpClient(http, baseUrl: "https://your-zlib-domain",
-    seeds: ["https://seed1.example"])
+    seed: "https://seed1.example")
 
 // 6) 用现成的 ZlibSites 创建（多个客户端共享同一份站点状态）
 let sites = ZlibSites(customUrl: "https://your-zlib-domain",
-    seeds: ["https://seed1.example"], refreshInterval: Duration.second * 30)
+    seed: "https://seed1.example", refreshInterval: Duration.second * 30)
 let sharedSites = ZlibClient.createWithSites(sites)
 let sharedHttpSites = ZlibClient.fromHttpClientWithSites(http, sites)
 ```
@@ -197,10 +197,10 @@ let sharedHttpSites = ZlibClient.fromHttpClientWithSites(http, sites)
 
 | 参数 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
-| `baseUrl` | `String` | `ZlibHost.DEFAULT_URL` | 自定义站（**优先使用**）；可带 `/eapi`（内部会规范化掉），也可带尾部 `/` |
+| `baseUrl` | `String` | **必填** | 自定义站（**优先使用**）；可带 `/eapi`（内部会规范化掉），也可带尾部 `/` |
 | `credential` | `ZlibCredential` | `ZlibCredential.anonymous()` | 初始凭证 |
 | `config` | `ZlibClientConfig` | `ZlibClientConfig()` | 连接与重试配置 |
-| `seeds` | `Array<String>` | `Array<String>()` | 种子站列表；空表示不换站（只做同址重试） |
+| `seed` | `String` | `""` | 种子站（**单个**引导站）；空串表示不换站（只做同址重试） |
 
 `createWithSites` 参数：
 
@@ -224,7 +224,7 @@ let sharedHttpSites = ZlibClient.fromHttpClientWithSites(http, sites)
 | `baseUrl` | `String` | 同 `create` |
 | `credential` | `ZlibCredential` | 同上 |
 | `config` | `ZlibClientConfig` | 同上；超时/代理等**以传入的 `HttpClient` 为准** |
-| `seeds` | `Array<String>` | 同上 |
+| `seed` | `String` | 同上 |
 
 `fromHttpClientWithSites` 参数：`http: HttpClient`（位置）、`sites: ZlibSites`（位置）、
 `credential!`、`config!`。
@@ -288,11 +288,11 @@ cloned.maxAttempts = 1
 
 ```cangjie
 let client = ZlibClient.create(baseUrl: "https://example.com/eapi/",
-    seeds: ["https://seed.example"])
+    seed: "https://seed.example")
 println(client.baseUrl)              // https://example.com
 println(client.eapiUrl)              // https://example.com/eapi
 println(client.credential.isLoggedIn) // false
-println(client.sites.hasSeeds())      // true
+println(client.sites.hasSeed())       // true
 ```
 
 > `host` / `baseUrl` / `eapiUrl` 是**动态读取**的：自动换站或
@@ -315,7 +315,7 @@ let viaHost = client.withHost(ZlibHost.of("https://third-mirror.example"))
 
 // 整体替换站点管理器（例如换成另一套种子站/冷却策略）
 let otherSites = ZlibSites(customUrl: "https://another-mirror.example",
-    seeds: ["https://seed3.example"], refreshInterval: Duration.second * 60)
+    seed: "https://seed3.example", refreshInterval: Duration.second * 60)
 let replaced = client.withSites(otherSites)
 ```
 
@@ -476,7 +476,7 @@ println(client.isClosed())       // true
 
 ```cangjie
 let client = ZlibClient.create(baseUrl: "https://your-zlib-domain",
-    seeds: ["https://seed1.example", "https://seed2.example"])
+    seed: "https://seed1.example")
 try {
     // 手动切到另一个已知可用地址（会影响所有共享 sites 的客户端）
     client.setCustomSite("https://another-mirror.example")
@@ -604,7 +604,7 @@ Z-Library 没有长期稳定的官方域名：主站会被封、镜像会轮换�
 从 **2.1.0** 起，本库把这套「域名会死」的现实做成了内建能力：
 
 - **自定义站**（`customUrl`）：调用方指定的地址，**所有请求优先用它**；
-- **种子站**（`seeds`）：稳定的引导站，自定义站失败时向它查询最新域名；
+- **种子站**（`seed`，**单个**）：稳定的引导站，自定义站失败时向它查询最新域名；
 - **自动换站 + 自动重试**：请求失败且属于「域名类错误」时，先向种子站换到新地址，
   用新地址重试，并把新地址**覆盖**回自定义站（后续请求立即生效）。
 
@@ -613,7 +613,7 @@ Z-Library 没有长期稳定的官方域名：主站会被封、镜像会轮换�
 | 概念 | 来源 | 作用 |
 | --- | --- | --- |
 | **自定义站**（`customUrl`） | 调用方指定（`create(baseUrl: ...)` / `ZlibSites(customUrl: ...)`） | 所有请求优先使用；自动换站后会被**覆盖** |
-| **种子站**（`seeds`） | 调用方指定的稳定引导站列表 | 自定义站失败时，向它查询最新域名并探测 |
+| **种子站**（`seed`，单个） | 调用方指定的单个稳定引导站 | 自定义站失败时，向它查询最新域名并探测 |
 
 ```
 请求 A ──> sites.current() = 自定义站
@@ -640,16 +640,14 @@ Z-Library 没有长期稳定的官方域名：主站会被封、镜像会轮换�
 构造：
 
 ```cangjie
-public init(customUrl!: String = ZlibHost.DEFAULT_URL,
-    seeds!: Array<String> = Array<String>(),
-    refreshInterval!: Duration = Duration.second * 30,
-    fallbackToSeed!: Bool = true)
+public init(customUrl!: String, seed!: String = "",
+    refreshInterval!: Duration = Duration.second * 30, fallbackToSeed!: Bool = true)
 ```
 
 | 参数 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
-| `customUrl` | `String` | `ZlibHost.DEFAULT_URL` | 初始自定义站（优先使用） |
-| `seeds` | `Array<String>` | `Array<String>()` | 种子站列表（按优先级从左到右）；空表示不启用换站 |
+| `customUrl` | `String` | **必填** | 初始自定义站（优先使用） |
+| `seed` | `String` | `""` | 种子站（**单个**引导站）；空串表示不启用换站 |
 | `refreshInterval` | `Duration` | 30 秒 | 两次种子刷新之间的最小间隔（负数按 30 秒处理） |
 | `fallbackToSeed` | `Bool` | `true` | 从种子站拿不到域名时，是否允许退用可达的种子站本身 |
 
@@ -659,8 +657,8 @@ public init(customUrl!: String = ZlibHost.DEFAULT_URL,
 | --- | --- | --- |
 | `current()` | `ZlibHost` | 当前站点（每次请求前读取，换站后立即生效） |
 | `customUrl()` | `String` | 当前自定义站（规范化后） |
-| `seedUrls()` | `Array<String>` | 种子站列表副本（改副本不影响本实例） |
-| `hasSeeds()` | `Bool` | 是否配置了种子站（没配置时换站无意义） |
+| `seedUrl()` | `String` | 种子站地址（空串 = 未配置） |
+| `hasSeed()` | `Bool` | 是否配置了种子站（没配置时换站无意义） |
 | `refreshInterval()` | `Duration` | 刷新冷却间隔 |
 | `fallbackToSeed()` | `Bool` | 是否允许退用种子站本身 |
 | `lastRefreshAtMillis()` | `Int64` | 上次刷新时间（Unix 毫秒，0 = 从未刷新） |
@@ -668,25 +666,25 @@ public init(customUrl!: String = ZlibHost.DEFAULT_URL,
 | `adopt(host: ZlibHost)` | `Unit` | 覆盖当前自定义站（自动换站内部用） |
 | `adoptUrl(url: String)` | `Unit` | 覆盖当前自定义站（字符串形式，会规范化） |
 | `setCustomUrl(url: String)` | `Unit` | 手动指定自定义站（等价 `adoptUrl`，语义更明确） |
-| `setSeedUrls(seeds: Array<String>)` | `Unit` | 替换种子站列表（空数组 = 关闭自动换站） |
+| `setSeedUrl(seed: String)` | `Unit` | 替换种子站（空串 = 关闭自动换站） |
 | `beginRefresh(force!: Bool = false)` | `Bool` | 申请一次刷新许可（带冷却窗口）；`force` 跳过冷却 |
 | `snapshot()` | `ZlibSiteSnapshot` | 当前状态的不可变快照（日志/持久化/诊断） |
 | `withCustomUrl(url: String)` | `ZlibSites` | 派生副本：换自定义站，种子站与策略沿用，刷新时间清零 |
-| `withSeeds(seeds: Array<String>)` | `ZlibSites` | 派生副本：换种子站 |
-| `toString()` | `String` | `ZlibSites(custom=..., seeds=N, refreshCount=...)` |
+| `withSeed(seed: String)` | `ZlibSites` | 派生副本：换种子站 |
+| `toString()` | `String` | `ZlibSites(custom=..., seed=..., refreshCount=...)` |
 
 ```cangjie
-// 典型构造：自定义站 + 两个种子站
+// 典型构造：自定义站 + 单个种子站
 let sites = ZlibSites(
     customUrl: "https://your-zlib-domain/eapi/",   // 会规范化成 https://your-zlib-domain
-    seeds: ["https://seed1.example", "https://seed2.example"],
+    seed: "https://seed1.example",
     refreshInterval: Duration.second * 30,
     fallbackToSeed: true)
 
 println(sites.current().url)      // https://your-zlib-domain
 println(sites.customUrl())        // https://your-zlib-domain
-println(sites.seedUrls().size)    // 2
-println(sites.hasSeeds())         // true
+println(sites.seedUrl())          // https://seed1.example
+println(sites.hasSeed())          // true
 
 // 手动覆盖当前自定义站（自动换站内部也走这个方法）
 sites.setCustomUrl("https://another-mirror.example")
@@ -694,15 +692,15 @@ println(sites.current().url)      // https://another-mirror.example
 
 // 派生独立副本（不影响原实例）
 let moved = sites.withCustomUrl("https://third-mirror.example")
-let reseeded = sites.withSeeds(["https://seed3.example"])
-println("${moved.current().url} / ${reseeded.seedUrls()[0]}")
+let reseeded = sites.withSeed("https://seed3.example")
+println("${moved.current().url} / ${reseeded.seedUrl()}")
 ```
 
 注意事项：
 
-- `seeds` 里的空串会被跳过，地址会走 `ZlibHost.of` 规范化（去尾部 `/`、去误加的 `/eapi`）；
-- `seedUrls()` 返回的是**副本**，改它不会影响管理器；
-- 派生出的 `withCustomUrl` / `withSeeds` 是**独立实例**，刷新时间清零；
+- 地址会走 `ZlibHost.of` 规范化（去尾部 `/`、去误加的 `/eapi`）；空串种子站表示关闭自动换站；
+- `seedUrl()` 返回的是**副本字符串**，改它不会影响管理器；
+- 派生出的 `withCustomUrl` / `withSeed` 是**独立实例**，刷新时间清零；
 - `ZlibSites` 的可变性是**受控的**：只有地址/种子/刷新状态可变，
   凭证与配置仍在客户端上保持不可变。
 
@@ -713,7 +711,7 @@ println("${moved.current().url} / ${reseeded.seedUrls()[0]}")
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `currentUrl` | `String` | 当前自定义站（实际请求用的地址） |
-| `seedUrls` | `Array<String>` | 种子站列表 |
+| `seedUrl` | `String` | 种子站地址（空串 = 未配置） |
 | `lastRefreshAtMillis` | `Int64` | 上次刷新时间（Unix 毫秒，0 = 尚未刷新） |
 | `refreshCount` | `Int64` | 累计刷新尝试次数 |
 | `refreshIntervalSeconds` | `Int64` | 刷新冷却间隔（秒） |
@@ -725,7 +723,7 @@ println(snapshot.currentUrl)                 // 当前站点
 println(snapshot.refreshCount)               // 换过几次
 println(snapshot.lastRefreshAtMillis)        // 上次换站时间
 println(snapshot.refreshIntervalSeconds)     // 30
-println(snapshot.seedUrls.size)
+println(snapshot.seedUrl)
 println(snapshot)                            // toString 一行摘要
 ```
 
@@ -733,8 +731,6 @@ println(snapshot)                            // toString 一行摘要
 
 | 成员 | 类型 | 说明 |
 | --- | --- | --- |
-| `DEFAULT_URL` | `String` | 默认站点 `https://zh.eva101.ru`（2026-11-10 实测 eapi 可用；镜像会轮换，**仍可能失效**） |
-| `MIRRORS` | `Array<String>` | 候选镜像列表（首个是实测可用的 `zh.eva101.ru`），供 `resolveZlibHost()` 探测 |
 | `ZlibHost.of(url: String)` | `ZlibHost` | 规范化地址（静态方法） |
 | `url` | `String` | 规范化后的站点根地址（无尾部 `/`、无 `/eapi`） |
 | `eapi` | `String` | `<站点>/eapi` |
@@ -768,14 +764,13 @@ println(host.isValid)  // true
 | `isRedirect` | `Bool` | 是否 3xx |
 | `ZlibProbe(url, status, location)` | `ZlibProbe` | 公共构造器（位置参数） |
 
-四个探测函数：
+三个探测函数：
 
 | 函数 | 返回 | 说明 |
 | --- | --- | --- |
 | `probeSite(url: String, timeoutSeconds!: Int64 = 10)` | `ZlibProbe` | 探测单个地址（HEAD、不跟随重定向、不带 Cookie）；`timeoutSeconds` 为读超时，总超时 = 读超时 + 5 秒 |
 | `checkAccess(url: String)` | `Bool` | 只回 Bool；会把 URL 里的 `/eapi` 之前部分拿来探 |
-| `canAccessZlib(baseUrl!: String = ZlibHost.DEFAULT_URL, autoRedirect!: Bool = false)` | `Bool` | 兼容旧版习惯；`autoRedirect=true` 时 3xx 也算可用 |
-| `resolveZlibHost(candidates!: Array<String> = ZlibHost.MIRRORS)` | `?ZlibHost` | 按候选列表探测出一个可用站点，全失败返回 `None` |
+| `canAccessZlib(baseUrl!: String, autoRedirect!: Bool = false)` | `Bool` | 单站点可达性；`baseUrl` 必填；`autoRedirect=true` 时 3xx 也算可用 |
 
 ```cangjie
 // 单点探测：能拿到状态码与重定向目标
@@ -793,11 +788,6 @@ println(quick.status)
 println(checkAccess("https://your-zlib-domain"))
 println(canAccessZlib(baseUrl: "https://your-zlib-domain", autoRedirect: true))
 
-// 从候选列表里找一个可用的
-match (resolveZlibHost()) {
-    case Some(host) => println("可用：${host.url}")
-    case None => println("候选镜像全部不可达，请手动指定 baseUrl")
-}
 ```
 
 **为什么探测必须关掉自动重定向**：镜像入口正是靠 3xx 的 `Location`
@@ -807,37 +797,31 @@ match (resolveZlibHost()) {
 **为什么 503 算可达**：503 常是站点的维护页——说明 DNS/TLS/HTTP 链路都是通的，
 站点本身还活着，只是暂时不服务。把它当「不可达」会误判整批镜像死亡。
 
-> `resolveZlibHost` 全失败返回 `None` 而不是抛异常：
-> 「找不到镜像」和「接口报错」是两种完全不同的故障，
-> 调用方需要不同的处理（换网络 vs 换账号），不该混成一个异常。
 
-### 5.6 换站流程：planSiteRefresh 与域名列表解析
+### 5.6 换站流程：planSiteRefresh
 
 换站计划是**纯逻辑**（网络能力用回调注入），所以可以完全离线测试：
 
 ```cangjie
-public func planSiteRefresh(seeds: Array<String>,
-    fetchDomains: (String) -> Array<String>,
+public func planSiteRefresh(currentUrl: String, seed: String,
     probe: (String) -> ZlibProbe,
-    fallbackToSeed: Bool,
-    maxCandidates!: Int64 = 4): ?ZlibHost
+    fallbackToSeed: Bool): ?ZlibHost
 ```
 
-依次尝试：
 
-1. 对每个种子站调用 `fetchDomains` 拉候选域名，逐个 `normalizeDomain` + `probe`，
-   返回第一个 200/503 的地址（每个种子站最多探测 `maxCandidates` 个，默认 4）；
-2. **种子站刚返回过域名 → 说明它本身可达**：`fallbackToSeed = true` 时直接用它，
-   不再对它做一次 HEAD（实测 HEAD 偶发超过 5 秒超时，会让换站白等一轮）；
-3. 拿不到域名时才探测种子站本身：3xx → 用 `Location`；200/503 → 直接用种子站；
+依次尝试（`client.refreshSite()` 的实现）：
+
+1. 先探测**当前站自己**是不是 3xx 跳转（客户端默认跟随重定向，看到的往往不是 302，
+   所以这里用不跟随重定向的 `probeSite`）；是 → 用响应头 `Location` 作为新站；
+2. 当前站不是跳转 → 探测**种子站的 3xx** `Location`；种子站本身可达（200/503）且
+   `fallbackToSeed = true` 时，直接退用种子站本身（实测 HEAD 偶发超过 5 秒，避免白等一轮）；
+3. 种子站为空（未配置）→ 直接 `None`；
 4. 全部失败 → `None`（由调用方决定是否报错，不在这里抛异常）。
 
 ```cangjie
-// 生产写法：域名列表来自种子站，探测用 probeSite
-let fetch: (String) -> Array<String> = { seed => fetchSeedDomains(seed) }
+// 生产写法：当前站 + 单个种子站，探测用 probeSite
 let probe: (String) -> ZlibProbe = { url => probeSite(url, timeoutSeconds: 5) }
-let target = planSiteRefresh(["https://seed1.example", "https://seed2.example"],
-    fetch, probe, true)
+let target = planSiteRefresh("https://current.example", "https://seed1.example", probe, true)
 if (let Some(host) <- target) {
     println("换到：${host.url}")
 }
@@ -846,59 +830,20 @@ if (let Some(host) <- target) {
 let fakeProbe: (String) -> ZlibProbe = { url =>
     ZlibProbe(url, if (url == "https://good.com") { UInt16(200) } else { UInt16(0) }, "")
 }
-let fakeFetch: (String) -> Array<String> = { _ => ["bad.com", "good.com"] }
-let picked = planSiteRefresh(["https://seed.example"], fakeFetch, fakeProbe, true)
+let picked = planSiteRefresh("https://dead.com", "https://good.com", fakeProbe, true)
 println(picked.getOrThrow().url)   // https://good.com
 ```
 
-配套的四个公开函数：
-
-| 函数 | 返回 | 说明 |
-| --- | --- | --- |
-| `fetchSeedDomains(seedUrl: String)` | `Array<String>` | 向种子站 `GET /eapi/info/domains` 并提取域名列表；失败返回**空数组**（不抛异常） |
-| `extractDomainList(root: JsonObject)` | `Array<String>` | 从响应根对象里宽松提取域名列表（多形态、保序去重） |
-| `normalizeDomain(raw: String, seed!: String = "")` | `?ZlibHost` | 把列表里的单项规范成站点地址；无法解析返回 `None` |
-| `planSiteRefresh(...)` | `?ZlibHost` | 上文的换站计划（`maxCandidates` 控制每个种子站的候选探测上限） |
-
-`extractDomainList` 兼容的响应形态（`/eapi/info/domains` 没有官方文档）：
-
-| 形态 | 示例 |
-| --- | --- |
-| 字符串数组 | `{"domains":["a.com","b.com"]}` |
-| 对象数组 | `{"domains":[{"domain":"a.com"},{"url":"https://b.com/x"}]}` |
-| map 形态 | `{"domains":{"a.com":{...},"b.com":{...}}}` |
-| 逗号/分号串 | `{"domains":"a.com,b.com"}` |
-| 单字段 | `{"domain":"a.com"}` / `{"url":"https://b.com"}` |
-
-```cangjie
-// 直接调用（已有响应文本时）
-let root = parseJsonObject("{\"success\":1,\"domains\":[\"a.com\",\"b.com\"]}")
-for (domain in extractDomainList(root)) {
-    println(domain)
-}
-
-// 规范化单项
-println(normalizeDomain("z-library.sk").getOrThrow().url)          // https://z-library.sk
-println(normalizeDomain("https://b.com/book/1").getOrThrow().url)  // https://b.com
-println(normalizeDomain("//c.com").getOrThrow().url)               // https://c.com
-println(normalizeDomain("/login", seed: "https://seed.com").getOrThrow().url)
-// https://seed.com
-
-// 从种子站拉一次域名列表（失败返回空数组）
-let domains = fetchSeedDomains("https://seed1.example")
-println("拿到 ${domains.size} 个候选域名")
-```
-
-`normalizeDomain` 处理的形态：
-
-- 裸域名 `z-library.sk` → 补 `https://`；
-- 带协议、带路径 `https://z-library.sk/book/1` → 只保留 `scheme://host[:port]`；
-- 协议相对地址 `//c.com` → 补 `https://`；
-- 根相对路径 `/login` → 相对 `seed` 解析（没给 `seed` 时返回 `None`）；
-- 空串、无法解析 → `None`（不抛异常）。
-
-> `fetchSeedDomains` 刻意**不复用** `ZlibClient`：客户端的请求层带自动重试/换站，
-> 换站过程中再调它会形成递归。这个函数用一次性短超时客户端，只发一次请求。
+> 说明：换站流程**不再**走 `/eapi/info/domains` 域名列表（候选域名不一定对当前网络可用，
+> 实测反而更慢）；现在只认 3xx `Location` 与种子站本身。
+>
+> 需要自己抓域名列表的调用方仍可用下面这些工具函数（换站流程不依赖它们）：
+>
+> | 函数 | 返回 | 说明 |
+> | --- | --- | --- |
+> | `fetchSeedDomains(seedUrl: String)` | `Array<String>` | 向种子站 `GET /eapi/info/domains` 并提取域名列表；失败返回**空数组**（不抛异常） |
+> | `extractDomainList(root: JsonObject)` | `Array<String>` | 从响应根对象里宽松提取域名列表（多形态、保序去重） |
+> | `normalizeDomain(raw: String, seed!: String = "")` | `?ZlibHost` | 把列表里的单项规范成站点地址；无法解析返回 `None` |
 
 ### 5.7 自动重试规则
 
@@ -936,7 +881,7 @@ let strict = ZlibClient.create(baseUrl: "https://your-zlib-domain", config: conf
 let config2 = ZlibClientConfig()
 config2.maxAttempts = 5
 let patient = ZlibClient.create(baseUrl: "https://your-zlib-domain",
-    seeds: ["https://seed1.example"], config: config2)
+    seed: "https://seed1.example", config: config2)
 ```
 
 > 重试是**有代价**的：写操作（收藏/发送到 Kindle）重试可能重复执行。
@@ -979,14 +924,14 @@ let savedCookie = client.credential.toCookieHeader()
 let restored = ZlibClient.create(
     baseUrl: savedSite,
     credential: ZlibCredential.fromCookieString(savedCookie),
-    seeds: ["https://seed1.example", "https://seed2.example"])
+    seed: "https://seed1.example")
 ```
 
 也可以存整个快照（多一个 `refreshCount` 之类的诊断信息）：
 
 ```cangjie
 let snapshot = client.sites.snapshot()
-println("当前=${snapshot.currentUrl} 种子=${snapshot.seedUrls.size} 刷新=${snapshot.refreshCount}")
+println("当前=${snapshot.currentUrl} 种子=${snapshot.seedUrl} 刷新=${snapshot.refreshCount}")
 // 自己序列化 snapshot 的字段；本库不负责落盘
 ```
 
@@ -1096,7 +1041,7 @@ try {
 | 现象 | 异常 | 判断/处理 |
 | --- | --- | --- |
 | 提示 `Please login` | `ZlibError(NotLoggedIn)` | 用 `LoginApi.loginClient` 重新登录；或检查凭证是否过期 |
-| 返回一段 HTML | `ZlibError(BadResponse)` | 域名失效/被风控；`resolveZlibHost()` 换站点 |
+| 返回一段 HTML | `ZlibError(BadResponse)` | 域名失效/被风控；用 `probeSite` 探到新站后 `setCustomSite` 切换 |
 | `success=0` + 英文文案 | `ZlibError(ApiFailure)` | 看 `serverMessage` 原文 |
 | 书详情 404 | `ZlibError(NotFound)` | id/hash 不匹配或书已删 |
 | 下载 403 | `ZlibError(Forbidden)` | 链接过期/需要个人域名；重新 `BookApi.file()` |
@@ -2368,7 +2313,7 @@ println("书单评论 ${listComments.comments.size} 条")
 | `sizeText()` | `String` | 文件大小文本：优先 `filesizeString`，否则按字节格式化 |
 | `saved()` | `Bool` | 当前用户是否已收藏（`None` 视为 false） |
 | `downloadable()` | `Bool` | 是否有可用下载路径（`dl` 非空） |
-| `webpage(baseUrl!: String = ZlibHost.DEFAULT_URL)` | `String` | 图书网页地址（优先 `href`，否则按 `/book/{id}/{hash}` 拼） |
+| `webpage(baseUrl!: String)` | `String` | 图书网页地址（优先 `href`，否则按 `/book/{id}/{hash}` 拼）；`baseUrl` 必填 |
 | `toString()` | `String` | `BookInfo(id/hash, title)` |
 
 ```cangjie
@@ -2398,7 +2343,7 @@ println(book.downloadable()) // false
 | --- | --- | --- |
 | `BookInfoBrief.fromJsonObject(obj: JsonObject)` | `BookInfoBrief` | 解码 |
 | `BookInfoBrief.fromJson(text: String)` | `BookInfoBrief` | 解码 |
-| `webpage(baseUrl!: String = ZlibHost.DEFAULT_URL)` | `String` | 图书网页地址：优先用 `url`，没有时按 `/book/{id}/{hash}` 拼 |
+| `webpage(baseUrl!: String)` | `String` | 图书网页地址：优先用 `url`，没有时按 `/book/{id}/{hash}` 拼；`baseUrl` 必填 |
 
 ```cangjie
 let brief = BookInfoBrief.fromJson(
@@ -2806,10 +2751,9 @@ func searchAll(client: ZlibClient, message: String, maxPages: Int64): Int64 {
 import zlibraryAPI4CJ.*
 import zlibraryAPI4CJ.search.*
 
-func searchWithRecovery(domain: String, seeds: Array<String>,
-    message: String): Int64 {
+func searchWithRecovery(domain: String, seed: String, message: String): Int64 {
     // 自定义站优先；失败时向种子站换新地址并覆盖自定义站，然后自动重试
-    let client = ZlibClient.create(baseUrl: domain, seeds: seeds)
+    let client = ZlibClient.create(baseUrl: domain, seed: seed)
     try {
         // 不需要手写重试：execute 层已经做了（默认 3 次、30 秒换站冷却）
         let size = SearchApi.search(client, message).size()
@@ -2827,7 +2771,7 @@ func searchWithRecovery(domain: String, seeds: Array<String>,
 等价写法（业务代码里显式控制）：
 
 ```cangjie
-let client = ZlibClient.create(baseUrl: domain, seeds: seeds)
+let client = ZlibClient.create(baseUrl: domain, seed: seed)
 try {
     let page = SearchApi.search(client, message)
 } catch (err: ZlibError) {
@@ -2948,9 +2892,8 @@ func rawInfo(client: ZlibClient): String {
    `integration/`（36/36 通过），验证了搜索/榜单/详情/相似/格式/站点信息/
    错误映射/自动换站重试。但镜像会轮换、服务端字段仍可能变，
    `doc/eapi-endpoints.md` 里的可信度标注仍以「社区文档 / v2 实测 / 推断」区分。
-2. **域名必须由调用方提供**：`ZlibHost.DEFAULT_URL` / `MIRRORS` 只是候选，
-   随时可能过期；生产环境请显式传 `baseUrl` 并配置 `seeds`，或先
-   `resolveZlibHost()` 探测。
+2. **域名必须由调用方提供**：官方域名列表由各前端自己维护（本库不再内置）；
+   调用方需显式传 `baseUrl`（自定义站）与可选的 `seed`（单个种子站，空串=不换站）。
 3. **下载依赖个人域名**：现代 Z-Library 的下载链接指向每个账号的专属域名，
    换账号/换域名后旧链接会失效，必须重新 `BookApi.file()`。
 4. **形状不稳定的接口返回原始 JSON**：`donations`、`info/*`（`formats` 已在

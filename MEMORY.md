@@ -4,6 +4,10 @@
 > 与 `Agent.md` 的分工：`Agent.md` 是「怎么做」的规范，本文件是
 > 「为什么是这样」的证据链。每条尽量注明**验证方式**，方便下一个人复核。
 >
+> **历史记录注意**：文中提到的 `ZlibHost.DEFAULT_URL` / `ZlibHost.MIRRORS` /
+> `resolveZlibHost()` 已在 2.3.0 移除（官方域名列表改由各前端维护）。
+> 它们只代表当时（2026-11）的实测与决策；现行 API 见 `API_USAGE.md` 第 5 章。
+>
 > 本库 v2（commit `f8bcfd4`）是**推翻重写**，不是增量重构。旧版代码保留在
 > git 历史里，可用 `git show af70e1e:<路径>` 取回，例如：
 >
@@ -556,8 +560,9 @@ cjpm build
    （`ZlibUser.downloadsLeft()` 只是展示）。
 5. **静态库无法独立运行**：验证必须通过消费工程（`doccheck/` 编译校验、
    `integration/` 联网验证，或调用方项目）。
-6. **域名硬编码风险**：`ZlibHost.DEFAULT_URL` 与 `MIRRORS` 只是候选，
-   生产环境请显式传 `baseUrl`、配置 `seeds` 自动换站，或先 `resolveZlibHost()`。
+6. **域名来源**：本库**不再内置**官方域名列表（`DEFAULT_URL` / `MIRRORS` 已删）；
+   官方域名由各前端自己维护，调用方需显式传 `baseUrl`（自定义站）与可选的
+   单个 `seed`（空串 = 不换站）。
 
 ---
 

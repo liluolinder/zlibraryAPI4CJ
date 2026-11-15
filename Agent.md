@@ -86,7 +86,7 @@ zlibraryAPI4CJ (root: 只做 public import core.* 与 model.*)
 | | `client.cj` | `ZlibClient`（请求 / 信封解包 / 自动重试 / 派生 / 下载 / papi 请求 `getPapiJson` / `postPapiFormJson`）、`ZlibClientConfig` |
 | | `site.cj` | `ZlibSites`（自定义站 + 种子站换站）、`ZlibSiteSnapshot`、`planSiteRefresh` / `fetchSeedDomains` / `extractDomainList` / `normalizeDomain` |
 | | `credential.cj` | `ZlibCredential`：`remix_userid` / `remix_userkey` / `siteLanguage` |
-| | `host.cj` | `ZlibHost`、`ZlibProbe`、`probeSite` / `checkAccess` / `canAccessZlib` / `resolveZlibHost` |
+| | `host.cj` | `ZlibHost`、`ZlibProbe`、`probeSite` / `checkAccess` / `canAccessZlib`（单站点探测） |
 | | `envelope.cj` | `ZlibEnvelope` + 宽松 JSON 读取（`readString` / `readInt` / `decodeEach` …） |
 | | `error.cj` | `ZlibErrorKind`、`ZlibError` |
 | | `query.cj` | `Query`、`formEncode`、`withQuery`、`appendPair`、`percentEncode` |
@@ -443,7 +443,7 @@ cjpm run
   等注册验证码流程未覆盖；书单（booklist）未覆盖。
 - 所有接口**未经真实站点回归**（开发机对候选镜像 503/超时），
   字段事实以 `doc/eapi-endpoints.md` 的社区文档标注为准。
-- 若 Z-Library 恢复稳定的官方域名，可把 `ZlibHost.MIRRORS` 收敛，
+- 官方域名列表由各前端自己维护（本库不再内置 `DEFAULT_URL` / `MIRRORS`）；
   但**不要**删除 `baseUrl` 配置入口——域名轮换是这个项目的长期约束。
 
 ---
@@ -453,7 +453,7 @@ cjpm run
 | 现象 | 先查这里 |
 | --- | --- |
 | 构建报 `undefined reference` / TLS 相关链接错误 | `cjpm.toml` 的 `[target.x86_64-w64-mingw32]`：`-lcrypt32`、stdx `path-option` |
-| 请求返回 `BadResponse`（非 JSON） | 域名失效 / 被风控页替换；先 `probeSite` / `resolveZlibHost` |
+| 请求返回 `BadResponse`（非 JSON） | 域名失效 / 被风控页替换；先 `probeSite` / `checkAccess` 探一下，再用 `setCustomSite` 换站 |
 | 接口一直 `NotLoggedIn` | 登录后是否用 `withCredential` 派生了客户端；`remix_userkey` 是否为空 |
 | 搜索/收藏分页拿不到第二页 | 看 `BookPage.pagination` 的 `current` / `total_pages` 是否为 0（服务端偶尔不给） |
 | 下载链接 403 / 404 | 链接带签名且常常指向个人域名，过期就重调 `BookApi.file()` |

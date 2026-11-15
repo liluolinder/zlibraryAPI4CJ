@@ -25,7 +25,7 @@
 | --- | --- | --- |
 | 调用形态 | `client.search(...)`、`book.getDownloadInfo(cookie: c)`——方法散落在各个类上 | 全部 `public static func`，**第一个参数永远是 `ZlibClient`** |
 | 身份传递 | 每个方法多一个 `cookie: String` 参数 | 凭证挂在客户端上，用 `withCredential` 派生 |
-| 站点地址 | 全局可变变量 `zlibBaseUrl` / `zlibEAPI` + `changeUrl()` | `ZlibHost` 值对象 + `client.withBaseUrl()` / `resolveZlibHost()` |
+| 站点地址 | 全局可变变量 `zlibBaseUrl` / `zlibEAPI` + `changeUrl()` | `ZlibHost` 值对象 + `client.withBaseUrl()` / `probeSite()` |
 | 失败表示 | 每个响应带 `success: UInt8`，调用方自己判断 | 统一**抛 `ZlibError`**（2.2.0 起传输/IO 异常也包装进来，原始异常在 `cause`） |
 | 模型 | 各 `dataModel/*.cj` 里的类，**模型自己发 HTTP** | `model` 子包只做解码与派生，**不发请求** |
 | 解码 | `Serializable.deserialize(DataModel)` + `strOr/u64Or` 兜底 | `stdx.encoding.json` + `readString/readInt/...` 宽松读取 |
@@ -51,7 +51,7 @@
 | `BookInfoBrief`（带 HTTP 方法） | `BookInfoBrief`（纯模型）+ `BookApi` | 同上 |
 | `DownloadInfo`（含 `download()`） | `DownloadInfo`（纯模型）+ `BookApi.download` / `client.download` | `fileName` 属性 → `fileName()` 方法 |
 | `common.zlibBaseUrl` / `zlibEAPI` / `changeUrl` | `ZlibHost` / `ZlibClient.baseUrl` / `withBaseUrl` / `ZlibSites` | 不再有全局变量；2.1.0 起「失败自动换站」由 `ZlibSites`（自定义站 + 种子站）管理 |
-| `common.canAccessZlib` / `checkAccess` | 同名顶层函数（签名变化） | 探测逻辑保留；自动换站用 `resolveZlibHost` 或 `ZlibClient.create(..., seed: ...)`（种子站是单个引导站） |
+| `common.canAccessZlib` / `checkAccess` | 同名顶层函数（签名变化） | 探测逻辑保留（`probeSite` / `checkAccess`）；自动换站用 `ZlibClient.create(..., seed: ...)`（种子站是单个引导站） |
 | （无） | `ZlibCredential` | v1 用裸 cookie 字符串，v2 有了类型 |
 | （无） | `ZlibError` / `ZlibErrorKind` | v1 只有 `Exception` / `success=0` |
 | （无） | `ZlibEnvelope` | v1 每个接口一个 `XxxRes`，v2 统一信封 |
@@ -114,7 +114,7 @@
 | `common.canAccessZlib(autoRedirect!)` | `canAccessZlib(baseUrl: ..., autoRedirect: ...)`（**不再修改全局地址**） |
 | `common.checkAccess(url)` | `checkAccess(url)`（顶层函数，签名兼容） |
 | （无） | `probeSite(url)` → `ZlibProbe`（带 `status` / `location` / `reachable`） |
-| （无） | `resolveZlibHost(candidates: ...)` → `?ZlibHost`（按候选列表探测） |
+| （无） | `probeSite(url)` → `ZlibProbe`（单站点探测；官方候选列表由前端维护） |
 
 ---
 
@@ -270,13 +270,13 @@ import zlibraryAPI4CJ.*
 import zlibraryAPI4CJ.search.*
 
 // 探测只返回结果，不改全局状态
-match (resolveZlibHost()) {
-    case Some(host) =>
-        let newClient = client.withBaseUrl(host.url)   // 共享连接池
-        let page = SearchApi.search(newClient, "Rust")
-        // ...
-        ()
-    case None => println("没有可用镜像")
+let probe = probeSite("https://your-zlib-domain")
+if (probe.reachable) {
+    let newClient = client.withBaseUrl("https://your-zlib-domain")   // 共享连接池
+    let page = SearchApi.search(newClient, "Rust")
+    // ...
+} else {
+    println("站点不可达")
 }
 ```
 
@@ -293,8 +293,8 @@ match (resolveZlibHost()) {
 4. **数值类型 `UInt64` → `Int64`。** `id`、`page`、`limit`、`filesize` 等全部改；
    `ZlibCredential.of(userId: Int64, ...)` 接收 `Int64`（内部转字符串）。
 5. **全局可变配置删除。** `zlibBaseUrl` / `zlibEAPI` / `changeUrl` 不再存在。
-   `canAccessZlib` 保留了名字，但**不再自动改地址**，真实地址用
-   `resolveZlibHost()` 取。
+   `canAccessZlib` 保留了名字，但**不再自动改地址**；真实地址由调用方决定
+   （或用 `probeSite()` 探测、`setCustomSite()` 切换）。
 6. **模型不再发请求。** `BookInfo.saveBook(...)` 之类的方法全部删除；
    所有网络动作走 `BookApi` / `UserApi` / `SearchApi` / `LoginApi` / `InfoApi`。
 7. **模型不再实现 `Serializable`。** 没有 `serialize()` / `deserialize(DataModel)`；

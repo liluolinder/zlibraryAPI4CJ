@@ -21,9 +21,12 @@ import linderHttp.*
  *
  * 1. 请求打到当前自定义站；
  * 2. 失败且属于「换站可能有用」的错误（连不上 / 非 JSON 风控页 / 403）；
- * 3. 向种子站 `GET /eapi/info/domains` 拿域名列表（也兼容 3xx `Location`
- *    与「种子站本身可达」两种兜底）；
- * 4. 探测出第一个可用地址后**覆盖自定义站**（`adopt`），下一次尝试立即生效。
+ * 3. `planSiteRefresh` 依次看：**当前站自己的 3xx `Location`** → 种子站的 3xx
+ *    `Location` → 种子站本身（`fallbackToSeed` 时才允许）；
+ * 4. 探到新地址后**覆盖自定义站**（`adopt`），下一次尝试立即生效。
+ *
+ * 域名列表接口（`fetchSeedDomains` / `extractDomainList` / `normalizeDomain`）
+ * 仍保留为工具函数，但**不再参与**自动换站。
  *
  * 线程安全：`ZlibSites` 内部用 `Mutex` 保护地址状态，多个线程共享同一个
  * `ZlibClient` 并发请求时不会互相覆盖出脏地址。所有派生客户端

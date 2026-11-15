@@ -21,9 +21,9 @@
   依赖方向严格单向（`core ← model ← 业务子包`，业务子包互不 import）。
 - **连接复用**：一个 `ZlibClient` 只持有一个 `HttpClient`，连接池、Cookie、超时全共享；
   客户端不可变，`withCredential` / `withBaseUrl` 派生新客户端时共享连接池。
-- **站点自动恢复（2.1.0）**：自定义站优先 + 种子站兜底——自定义站失败时自动向
-  种子站查询最新域名、**覆盖自定义站**并用新地址重试请求；也保留
-  `resolveZlibHost` / `probeSite` / `checkAccess` 手动探测入口。
+- **站点自动恢复（2.1.0）**：调用方传入「当前自定义站 + 单个种子站」两个**单值**；
+  自定义站失败时自动向种子站查询最新域名、**覆盖自定义站**并用新地址重试请求。
+  官方域名列表**不由本库定义**（各前端自己维护）；手动探测入口保留 `probeSite` / `checkAccess` / `canAccessZlib`。
 - **身份双通道**：同时发送 `remix-userid` / `remix-userkey` 请求头与
   `remix_userid` / `remix_userkey` Cookie，兼容不同版本服务端。
 - **统一异常（对齐 bbapi）**：对外只抛 `ZlibError`——业务失败保留业务 `kind`；
@@ -92,9 +92,9 @@ import zlibraryAPI4CJ.*        // ZlibClient / ZlibCredential / ZlibError / 全�
 import zlibraryAPI4CJ.book.*   // BookApi
 
 main(): Int64 {
-    // 1. 建客户端：自定义站优先；配置 seeds 后，自定义站失败会自动换站并重试
+    // 1. 建客户端：自定义站优先；配置种子站后，自定义站失败会自动换站并重试
     let client = ZlibClient.create(baseUrl: "https://your-zlib-domain",
-        seeds: ["https://seed1.example"])
+        seed: "https://seed1.example")
     try {
         // 2. 取图书详情（id + hash 是几乎所有图书接口的定位符）
         let book = BookApi.info(client, 123456, "abcdef123456")
@@ -119,29 +119,23 @@ main(): Int64 {
 
 `Path` 来自 `std.fs`，示例省略了 `import std.fs.*`。
 
-### 探测可用站点
+### 探测站点
+
+本库不再内置「官方域名候选列表」：官方地址由调用方（前端）自己维护。
+下面是单站点探测入口：
 
 ```cangjie
 import zlibraryAPI4CJ.*
 
 main(): Int64 {
-    // 返回 ?ZlibHost：全失败是 None（不是异常）——「找不到镜像」和「接口报错」是两种故障
-    match (resolveZlibHost()) {
-        case Some(host) =>
-            println("可用站点：${host.url}（eapi: ${host.eapi}）")
-            let client = ZlibClient.create(baseUrl: host.url)
-            try {
-                // ...
-                ()
-            } finally {
-                client.close()
-            }
-        case None => println("候选镜像全部不可达，请手动指定 baseUrl")
-    }
-
     // 单点探测：200 / 503（维护页）/ 3xx 都算「连得上」
-    let probe = probeSite("https://z-library.sk")
+    let probe = probeSite("https://your-zlib-domain")
     println("status=${probe.status} redirect=${probe.isRedirect} reachable=${probe.reachable}")
+
+    // 3xx 的 Location 可以提升为真实站点地址
+    if (probe.isRedirect && !probe.location.isEmpty()) {
+        println("跳转到：${probe.location}")
+    }
     0
 }
 ```
@@ -156,7 +150,7 @@ main(): Int64 {
     // 自定义站优先；自定义站失败 -> 向种子站要新地址 -> 覆盖自定义站 -> 重试
     let client = ZlibClient.create(
         baseUrl: "https://your-zlib-domain",
-        seeds: ["https://seed1.example", "https://seed2.example"])
+        seed: "https://seed1.example")   // 单个引导站；空串表示不换站
     try {
         // 任何接口失败都会自动走「换站 + 重试」（默认最多 3 次，30 秒冷却窗口）
         let page = SearchApi.search(client, "Rust")
