@@ -7,7 +7,7 @@
  *    内部只持有一个 LinderHttp `HttpClient`，连接池与 Cookie 存储共享；
  *    凭证是不可变值，通过 `withCredential` 派生新客户端。
  * 2. **站点地址**（`host.cj`）：Z-Library 没有稳定的官方域名，必须允许
- *    运行期指定与探测；`resolveZlibHost` 会按候选列表逐个 HEAD 探测。
+ *    运行期指定（官方域名列表由前端维护，本库只接收 custom / seed 两个单值）。
  * 3. **响应信封与错误**（`envelope.cj` / `error.cj`）：eapi 统一返回
  *    `{"success": 1, ...}` / `{"success": 0, "error": "..."}`；业务失败抛
  *    `ZlibError`，传输层/文件系统异常也会在客户端边界被统一包装成
@@ -22,7 +22,7 @@
  * | --- | --- |
  * | `client.cj`     | `ZlibClient` / `ZlibClientConfig`：请求、信封解包、下载 |
  * | `credential.cj` | `ZlibCredential`：remix_userid / remix_userkey / 语言 |
- * | `host.cj`       | `ZlibHost` / `checkAccess` / `canAccessZlib` / `resolveZlibHost` |
+ * | host.cj       | ZlibHost / probeSite / canAccessZlib（单站点探测） |
  * | `envelope.cj`   | `ZlibEnvelope` + 宽松 JSON 读取工具 |
  * | `error.cj`      | `ZlibErrorKind` / `ZlibError` |
  * | `site.cj`       | `ZlibSites`：自定义站（优先）+ 种子站（失败换站），换站计划与域名列表提取 |

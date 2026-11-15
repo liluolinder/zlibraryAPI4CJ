@@ -54,7 +54,7 @@ public class ZlibSites {
      * @param refreshInterval 两次种子刷新最小间隔（默认 30 秒）
      * @param fallbackToSeed 种子站拿不到域名时，是否允许直接用可达的种子站本身
      */
-    public init(customUrl!: String = ZlibHost.DEFAULT_URL,
+    public init(customUrl!: String,
         seed!: String = "",
         refreshInterval!: Duration = Duration.second * 30,
         fallbackToSeed!: Bool = true) {

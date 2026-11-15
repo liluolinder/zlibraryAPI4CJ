@@ -129,7 +129,7 @@ public class ZlibClient <: Resource & ToString {
      * @param config 连接与重试配置
      * @param seed 种子站（单个引导站）：自定义站失败时向它问新地址；空表示只做同址重试
      */
-    public static func create(baseUrl!: String = ZlibHost.DEFAULT_URL,
+    public static func create(baseUrl!: String,
         credential!: ZlibCredential = ZlibCredential.anonymous(),
         config!: ZlibClientConfig = ZlibClientConfig(),
         seed!: String = ""): ZlibClient {
@@ -155,7 +155,7 @@ public class ZlibClient <: Resource & ToString {
      * 生命周期仍由 `ZlibClient.close()` 负责关闭。
      */
     public static func fromHttpClient(http: HttpClient,
-        baseUrl!: String = ZlibHost.DEFAULT_URL,
+        baseUrl!: String,
         credential!: ZlibCredential = ZlibCredential.anonymous(),
         config!: ZlibClientConfig = ZlibClientConfig(),
         seed!: String = ""): ZlibClient {

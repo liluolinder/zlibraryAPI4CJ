@@ -27,8 +27,8 @@ class ZlibHostTest {
     func testOrigin(): Unit {
         @Expect(ZlibHost.of("https://a.com").origin, "https://a.com/")
         @Expect(ZlibHost.of("https://a.com").isValid, true)
-        @Expect(ZlibHost.DEFAULT_URL.startsWith("https://"), true)
-        @Expect(ZlibHost.MIRRORS.size > 0, true)
+        // 官方域名列表不在本库定义（由前端维护）：这里只验证地址规范化不再依赖任何内置候选。
+        @Expect(ZlibHost.of("zh.z-library.sk").url, "zh.z-library.sk")
     }
 
     @TestCase

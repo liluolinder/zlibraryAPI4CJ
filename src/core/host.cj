@@ -11,10 +11,11 @@ import linderHttp.*
  * personal zlibrary domains）。所以站点点位必须是可配置的一等公民，
  * 而不是写死在常量里。
  *
- * 用法：
- * - 已知可用域名 → `ZlibClient.create(baseUrl: "https://xxx")`；
- * - 不知道哪个能用 → `resolveZlibHost()` 按 `ZLIB_MIRRORS` 逐个探测；
- * - 已探测到但运行中失效 → `client.withBaseUrl(newUrl)` 派生新客户端（共享连接池）。
+ * 官方域名列表**不在本库定义**（由各前端自己维护）；本库只接收调用方传入的
+ * 两个单值：**当前自定义站**（custom）与**种子站**（seed）。
+ *
+ * 用法：`ZlibClient.create(baseUrl: "https://xxx", seed: "https://seed")`；
+ * 运行中换站 → `client.setCustomSite(newUrl)`。
  *
  * 注意：`ZlibHost` 只做地址规范化（去尾部 `/`、去误加的 `/eapi`），不发请求。
  */
@@ -26,33 +27,6 @@ public class ZlibHost <: ToString {
         this.url = url
     }
 
-    /**
-     * 默认站点地址。
-     *
-     * **2026-11-10 实测**：`https://zh.eva101.ru` 的 eapi 可用
-     * （`/eapi/book/search`、`/eapi/book/most-popular`、`/eapi/info/domains`
-     * 等均返回 `success=1`），故作为默认站点。但镜像域名随时会轮换，
-     * 生产环境仍建议显式传 `baseUrl` 或先用 `resolveZlibHost()` 探测。
-     */
-    public static let DEFAULT_URL: String = "https://zh.eva101.ru"
-
-    /**
-     * 候选镜像列表，供 `resolveZlibHost()` 探测。
-     *
-     * 来源：2026-11-10 实测可用的镜像（`zh.eva101.ru`）与官方 eapi 文档/社区
-     * 客户端长期使用的域名。列表只是「候选」，不保证每个都可用；
-     * 探测失败会自动跳到下一个。**从当前网络环境看，本机只能连通
-     * `zh.eva101.ru`，其余域名会超时**——这也是本库要做换站的原因。
-     */
-    public static let MIRRORS: Array<String> = [
-        "https://zh.eva101.ru",
-        "https://z-library.sk",
-        "https://zh.z-library.sk",
-        "https://1lib.sk",
-        "https://z-lib.gs",
-        "https://z-lib.fm",
-        "https://singlelogin.re"
-    ]
 
     /**
      * 规范化一个站点地址。
@@ -193,13 +167,14 @@ public func checkAccess(url: String): Bool {
 }
 
 /**
- * 判断站点是否可访问（兼容旧版 `canAccessZlib` 的调用习惯）。
+ * 判断**单个**站点是否可访问。
  *
- * @param baseUrl 站点根地址
- * @param autoRedirect 为 `true` 时，3xx 也算「可用」（真实地址用 `resolveZlibHost` 取）
+ * 官方域名列表由各前端自己维护；本库只提供单站点探测能力。
+ *
+ * @param baseUrl 站点根地址（必填）
+ * @param autoRedirect 为 `true` 时，3xx 也算「可用」（真实地址用响应头 `Location` 取）
  */
-public func canAccessZlib(baseUrl!: String = ZlibHost.DEFAULT_URL,
-    autoRedirect!: Bool = false): Bool {
+public func canAccessZlib(baseUrl!: String, autoRedirect!: Bool = false): Bool {
     let result = probeSite(baseUrl)
     if (autoRedirect && result.isRedirect) {
         return true
@@ -207,25 +182,6 @@ public func canAccessZlib(baseUrl!: String = ZlibHost.DEFAULT_URL,
     result.status == 200 || result.status == 503
 }
 
-/**
- * 按候选列表探测出一个可用站点。
- *
- * 探测顺序：先看 3xx 的 `Location`（镜像入口会给出真实域名），
- * 再看 200/503（直接可访问）。全部失败返回 `None`，由调用方决定报错文案
- * ——「找不到镜像」和「接口报错」是两种完全不同的故障，不该混成一个异常。
- */
-public func resolveZlibHost(candidates!: Array<String> = ZlibHost.MIRRORS): ?ZlibHost {
-    for (candidate in candidates) {
-        let result = probeSite(candidate)
-        if (result.isRedirect && !result.location.isEmpty()) {
-            return Some(ZlibHost.of(result.location))
-        }
-        if (result.status == 200 || result.status == 503) {
-            return Some(ZlibHost.of(candidate))
-        }
-    }
-    None
-}
 
 /** 把 `Location` 解析成绝对地址：支持绝对 URL、根相对路径与相对路径。 */
 internal func resolveLocation(baseUrl: String, location: String): String {

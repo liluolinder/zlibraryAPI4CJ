@@ -171,7 +171,7 @@ public class BookInfo <: ToString {
      * 优先用 `href`（服务端给的相对地址）；旧响应可能没有 `href`，
      * 此时按 `/book/{id}/{hash}` 拼。域名不稳定，所以要显式传站点地址。
      */
-    public func webpage(baseUrl!: String = ZlibHost.DEFAULT_URL): String {
+    public func webpage(baseUrl!: String): String {
         let host = ZlibHost.of(baseUrl).url
         if (!href.isEmpty()) {
             if (href.startsWith("http")) {
@@ -240,7 +240,7 @@ public class BookInfoBrief <: ToString {
      * 都返回该字段，值是 `/book/{id}/{hash}/{slug}.html` 形式的相对地址或
      * 绝对地址）；没有 `url` 时退回 `/book/{id}/{hash}`。
      */
-    public func webpage(baseUrl!: String = ZlibHost.DEFAULT_URL): String {
+    public func webpage(baseUrl!: String): String {
         let host = ZlibHost.of(baseUrl).url
         if (!url.isEmpty()) {
             if (url.startsWith("http")) {
