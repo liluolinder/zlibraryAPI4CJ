@@ -13,7 +13,7 @@
   package-configuration = {}
 
 [dependencies]
-  linderHttp = { path = "C:/Project/Cangjie/LinderHttp" }
+  linderHttp = { git = "https://gitcode.com/LiquidStudio/LinderHttp.git" }
 
 [target]
 [target.aarch64-linux-ohos]
